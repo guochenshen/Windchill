@@ -82,10 +82,16 @@
 
 void (*state)(void);
 
+double position_x; // [m]
+double position_y; // [m]
+double max_x; // [m]
+double max_y; // [m]
+
 // encoder data
 Encoder dcmotor1(DCMOTORENCODER1CHA, DCMOTORENCODER1CHB);
 Encoder dcmotor2(DCMOTORENCODER2CHA, DCMOTORENCODER2CHB);
 
+// initializes the pins
 void setup() {
   state = &standby;
 
@@ -108,10 +114,13 @@ void setup() {
   digitalWrite(DCMOTORL4, LOW);
 }
 
+// runs function of whichever state the system is currently in
 void loop() {
   (*state)();
 }
 
+// all systems powered but not performing any actions
+// can transition to state of performing actions
 void standby() {
   // TURNS BOTH DC MOTORS OFF
   analogWrite(DCMOTORENABLE1, 0);
@@ -123,12 +132,12 @@ void standby() {
   return;
 }
 
+// 
 void on() {
   return;
 }
 
-
-
+// reads sensors to determine location of the device relative to its environment
 void calibrate() {
   return;
 }
