@@ -4,6 +4,8 @@
    windchill control software
 */
 
+#include <Encoder.h>
+
 #define SENSOR0 A0
 #define SENSOR1 A1
 #define SENSOR2 A2
@@ -39,10 +41,10 @@
 #define INPUT15 15 // RX3
 #define INPUT16 16 // TX2
 #define INPUT17 17 // RX2
-#define INPUT18 18// TX1 & INT5
-#define INPUT19 19 // RX1 & INT4
-#define INPUT20 20 // INT3
-#define INPUT21 21 // INT2
+#define DCMOTORENCODER1CHA 18// TX1 & INT5
+#define DCMOTORENCODER1CHB 19 // RX1 & INT4
+#define DCMOTORENCODER2CHA 20 // INT3
+#define DCMOTORENCODER2CHB 21 // INT2
 #define INPUT22 22
 #define INPUT23 23
 #define INPUT24 24
@@ -80,8 +82,14 @@
 
 void (*state)(void);
 
+// encoder data
+Encoder dcmotor1(DCMOTORENCODER1CHA, DCMOTORENCODER1CHB);
+Encoder dcmotor2(DCMOTORENCODER2CHA, DCMOTORENCODER2CHB);
+
 void setup() {
-  state = &on;
+  state = &standby;
+
+  Serial.begin(9600);
 
   // SET DC MOTOR PINS AS OUTPUT
   pinMode(DCMOTORENABLE1, OUTPUT);
@@ -104,13 +112,22 @@ void loop() {
   (*state)();
 }
 
+void standby() {
+  // TURNS BOTH DC MOTORS OFF
+  analogWrite(DCMOTORENABLE1, 0);
+  analogWrite(DCMOTORENABLE2, 0);
+  digitalWrite(DCMOTORL1, LOW);
+  digitalWrite(DCMOTORL2, LOW);
+  digitalWrite(DCMOTORL3, LOW);
+  digitalWrite(DCMOTORL4, LOW);
+  return;
+}
+
 void on() {
   return;
 }
 
-void standby() {
-  return;
-}
+
 
 void calibrate() {
   return;
