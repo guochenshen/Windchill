@@ -78,7 +78,11 @@
 #define INPUT54 54
 #define INPUT55 55
 
+void (*state)(void);
+
 void setup() {
+  state = &on;
+  
   pinMode(DCMOTORENABLE1, OUTPUT);
   pinMode(DCMOTORENABLE2, OUTPUT);
   pinMode(DCMOTORL1, OUTPUT);
@@ -91,6 +95,18 @@ void setup() {
 }
 
 void loop() {
-  // put your main code here, to run repeatedly:
-
+  (*state)();
 }
+
+void on() {
+  return;
+}
+
+void standby() {
+  return;
+}
+
+void calibrate() {
+  return;
+}
+
