@@ -61,14 +61,14 @@
 #define INPUT37 37
 #define INPUT38 38
 #define INPUT39 39
-#define INPUT40 40
-#define DCMOTORENABLE1 41
-#define DCMOTORENABLE2 42
-#define INPUT43 43
-#define DCMOTORL1 44 // PWM
-#define DCMOTORL2 45 // PWM
-#define DCMOTORL3 46 // PWM
-#define DCMOTORL4 47
+#define DCMOTORL1 40
+#define DCMOTORL2 41
+#define DCMOTORL3 42
+#define DCMOTORL4 43
+#define DCMOTORENABLE1 44 // PWM
+#define DCMOTORENABLE2 45 // PWM
+#define INPUT46 46 // PWM
+#define INPUT47 47
 #define INPUT48 48
 #define INPUT49 49
 #define INPUT50 50
@@ -82,7 +82,8 @@ void (*state)(void);
 
 void setup() {
   state = &on;
-  
+
+  // SET DC MOTOR PINS AS OUTPUT
   pinMode(DCMOTORENABLE1, OUTPUT);
   pinMode(DCMOTORENABLE2, OUTPUT);
   pinMode(DCMOTORL1, OUTPUT);
@@ -90,8 +91,13 @@ void setup() {
   pinMode(DCMOTORL3, OUTPUT);
   pinMode(DCMOTORL4, OUTPUT);
 
-  digitalWrite(DCMOTORENABLE1, LOW);
-  digitalWrite(DCMOTORENABLE2, LOW);
+  // SET DC MOTOR PINS TO TURN MOTORS OFF
+  analogWrite(DCMOTORENABLE1, 0);
+  analogWrite(DCMOTORENABLE2, 0);
+  digitalWrite(DCMOTORL1, LOW);
+  digitalWrite(DCMOTORL2, LOW);
+  digitalWrite(DCMOTORL3, LOW);
+  digitalWrite(DCMOTORL4, LOW);
 }
 
 void loop() {
