@@ -23,62 +23,62 @@
 #define SENSOR14 A14
 #define SENSOR15 A15
 
-#define INPUT0 0 // RX0 & USB TO TTL
-#define INPUT1 1 // TX0 & USB TO TTL
-#define INPUT2 2 // INT0 & PWM
-#define INPUT3 3 // INT1 & PWM
-#define INPUT4 4 // PWM
-#define INPUT5 5 // PWM
-#define INPUT6 6 // PWM
-#define INPUT7 7 // PWM
-#define INPUT8 8 // PWM
-#define INPUT9 9 // PWM
-#define INPUT10 10 // PWM
-#define INPUT11 11 // PWM
-#define INPUT12 12 // PWM
-#define INPUT13 13 // LED & PWM
-#define INPUT14 14 // TX3
-#define INPUT15 15 // RX3
-#define INPUT16 16 // TX2
-#define INPUT17 17 // RX2
+#define PIN0 0 // RX0 & USB TO TTL
+#define PIN1 1 // TX0 & USB TO TTL
+#define PIN2 2 // INT0 & PWM
+#define PIN3 3 // INT1 & PWM
+#define PIN4 4 // PWM
+#define PIN5 5 // PWM
+#define PIN6 6 // PWM
+#define PIN7 7 // PWM
+#define PIN8 8 // PWM
+#define PIN9 9 // PWM
+#define PIN10 10 // PWM
+#define PIN11 11 // PWM
+#define PIN12 12 // PWM
+#define PIN13 13 // LED & PWM
+#define PIN14 14 // TX3
+#define PIN15 15 // RX3
+#define PIN16 16 // TX2
+#define PIN17 17 // RX2
 #define DCMOTORENCODER1CHA 18// TX1 & INT5
 #define DCMOTORENCODER1CHB 19 // RX1 & INT4
 #define DCMOTORENCODER2CHA 20 // INT3
 #define DCMOTORENCODER2CHB 21 // INT2
-#define INPUT22 22
-#define INPUT23 23
-#define INPUT24 24
-#define INPUT25 25
-#define INPUT26 26
-#define INPUT27 27
-#define INPUT28 28
-#define INPUT29 29
-#define INPUT30 30
-#define INPUT31 31
-#define INPUT32 32
-#define INPUT33 33
-#define INPUT34 34
-#define INPUT35 35
-#define INPUT36 36
-#define INPUT37 37
-#define INPUT38 38
-#define INPUT39 39
+#define PIN22 22
+#define PIN23 23
+#define PIN24 24
+#define PIN25 25
+#define PIN26 26
+#define PIN27 27
+#define PIN28 28
+#define PIN29 29
+#define PIN30 30
+#define PIN31 31
+#define PIN32 32
+#define PIN33 33
+#define PIN34 34
+#define PIN35 35
+#define PIN36 36
+#define PIN37 37
+#define PIN38 38
+#define PIN39 39
 #define DCMOTORL1 40
 #define DCMOTORL2 41
 #define DCMOTORL3 42
 #define DCMOTORL4 43
 #define DCMOTORENABLE1 44 // PWM
 #define DCMOTORENABLE2 45 // PWM
-#define INPUT46 46 // PWM
-#define INPUT47 47
-#define INPUT48 48
-#define INPUT49 49
-#define INPUT50 50
-#define INPUT51 51
-#define INPUT52 52
-#define INPUT53 53
-#define INPUT54 54
-#define INPUT55 55
+#define PIN46 46 // PWM
+#define PIN47 47
+#define PIN48 48
+#define PIN49 49
+#define PIN50 50
+#define PIN51 51
+#define PIN52 52
+#define PIN53 53
+#define PIN54 54
+#define PIN55 55
 
 void (*state)(void);
 
@@ -132,9 +132,9 @@ void standby() {
   return;
 }
 
-// 
+// turns the device on and performs all checks necessary
 void on() {
-  return;
+  state = &standby;
 }
 
 // reads sensors to determine location of the device relative to its environment
