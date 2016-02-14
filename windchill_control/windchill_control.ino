@@ -82,18 +82,21 @@
 
 void (*state)(void);
 
+// position of the device relative to bottom left corner
 double position_x; // [m]
 double position_y; // [m]
+// maximum coordinates of the system
 double max_x; // [m]
 double max_y; // [m]
 
-// encoder data
+// encoder data objects
 Encoder dcmotor1(DCMOTORENCODER1CHA, DCMOTORENCODER1CHB);
 Encoder dcmotor2(DCMOTORENCODER2CHA, DCMOTORENCODER2CHB);
 
 // initializes the pins
 void setup() {
-  state = &standby;
+  // sets initial state to on procedure
+  state = &on;
 
   Serial.begin(9600);
 
