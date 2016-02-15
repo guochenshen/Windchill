@@ -121,24 +121,24 @@ double prevvel2;
 unsigned long prevtime;
 
 // PID values for dc motor 1
-double dcmotorsetpoint1;
-double dcmotorinput1;
-double dcmotoroutput1;
+double dcsetpoint1;
+double dcinput1;
+double dcoutput1;
 // PID constants dc motor 1
 double kp1 = 10.0;
 double ki1 = 0.0;
 double kd1 = 0.0;
 // PID values for dc motor 2
-double dcmotorsetpoint2;
-double dcmotorinput2;
-double dcmotoroutput2;
+double dcsetpoint2;
+double dcinput2;
+double dcoutput2;
 // PID constants for dc motor 2
 double kp2 = 10.0;
 double ki2 = 0.0;
 double kd2 = 0.0;
 
-PID dcmotorpid1(&dcmotorinput1, &dcmotoroutput1, &dcmotorsetpoint1, kp1, ki1, kd1, DIRECT);
-PID dcmotorpid2(&dcmotorinput2, &dcmotoroutput2, &dcmotorsetpoint2, kp2, ki2, kd2, DIRECT);
+PID dcmotorpid1(&dcinput1, &dcoutput1, &dcsetpoint1, kp1, ki1, kd1, DIRECT);
+PID dcmotorpid2(&dcinput2, &dcoutput2, &dcsetpoint2, kp2, ki2, kd2, DIRECT);
 
 // initializes the pins
 void setup() {
