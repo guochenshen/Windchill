@@ -277,7 +277,7 @@ void right() {
   analogWrite(DCMOTORENABLE1, 155);
   analogWrite(DCMOTORENABLE2, 96);
   
-  if (abs(dcmotorenc1.read()) > 720) {
+  if (abs(dcmotorenc1.read()) > 90) {
     dcmotoroff();
     delay(500);
     dcmotorreset();
@@ -307,7 +307,7 @@ void left() {
   analogWrite(DCMOTORENABLE1, 155);
   analogWrite(DCMOTORENABLE2, 96);
   
-  if (abs(dcmotorenc1.read()) > 720) {
+  if (abs(dcmotorenc1.read()) > 90) {
     dcmotoroff();
     delay(500);
     dcmotorreset();
