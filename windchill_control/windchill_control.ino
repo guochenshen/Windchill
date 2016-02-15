@@ -4,6 +4,7 @@
    windchill control software
 */
 
+#include <PID_v1.h>
 #include <Encoder.h>
 
 #define SENSOR0 A0
@@ -80,7 +81,7 @@
 #define PIN54 54
 #define PIN55 55
 
-void (*state)(void);
+void (*state)(void); // current state of the machine
 
 // position of the device relative to bottom left corner
 double position_x; // [m]
@@ -90,8 +91,35 @@ double max_x; // [m]
 double max_y; // [m]
 
 // encoder data objects
-Encoder dcmotor1(DCMOTORENCODER1CHA, DCMOTORENCODER1CHB);
-Encoder dcmotor2(DCMOTORENCODER2CHA, DCMOTORENCODER2CHB);
+Encoder dcmotorenc1(DCMOTORENCODER1CHA, DCMOTORENCODER1CHB);
+Encoder dcmotorenc2(DCMOTORENCODER2CHA, DCMOTORENCODER2CHB);
+int32_t prevenc1;
+int32_t prevenc2;
+double prevvel1;
+double prevvel2;
+
+// time values
+unsigned long prevtime;
+
+// PID values for dc motor 1
+double dcmotorsetpoint1;
+double dcmotorinput1;
+double dcmotoroutput1;
+// PID constants dc motor 1
+double kp1;
+double ki1;
+double kd1;
+// PID values for dc motor 2
+double dcmotorsetpoint2;
+double dcmotorinput2;
+double dcmotoroutput2;
+// PID constants for dc motor 2
+double kp2;
+double ki2;
+double kd2;
+
+PID dcmotorpid1(&dcmotorinput1, &dcmotoroutput1, &dcmotorsetpoint1, kp1, ki1, kd1, DIRECT);
+PID dcmotorpid2(&dcmotorinput2, &dcmotoroutput2, &dcmotorsetpoint2, kp2, ki2, kd2, DIRECT);
 
 // initializes the pins
 void setup() {
@@ -115,6 +143,9 @@ void setup() {
   digitalWrite(DCMOTORL2, LOW);
   digitalWrite(DCMOTORL3, LOW);
   digitalWrite(DCMOTORL4, LOW);
+
+  dcmotorpid1.SetMode(MANUAL);
+  dcmotorpid2.SetMode(MANUAL);
 }
 
 // runs function of whichever state the system is currently in
@@ -138,10 +169,83 @@ void standby() {
 // turns the device on and performs all checks necessary
 void on() {
   state = &standby;
+  return;
 }
 
 // reads sensors to determine location of the device relative to its environment
 void calibrate() {
   return;
+}
+
+void forward() {
+  // turns on PID control software 
+  dcmotorpid1.SetMode(AUTOMATIC);
+  dcmotorpid2.SetMode(AUTOMATIC);
+  
+  if (true) {
+    return;
+  }
+  else if (false) {
+    dcmotorpid1.SetMode(MANUAL); // turns off PID, resets when turned on again
+    dcmotorpid2.SetMode(MANUAL); // turns off PID, resets when turned on again
+    analogWrite(DCMOTORENABLE1, 0);
+    analogWrite(DCMOTORENABLE2, 0);
+    dcmotorenc1.write(0);
+    dcmotorenc2.write(0);
+  }
+}
+
+void right() {
+  // turns on PID control software 
+  dcmotorpid1.SetMode(AUTOMATIC);
+  dcmotorpid2.SetMode(AUTOMATIC);
+  
+  if (true) {
+    return;
+  }
+  else if (false) {
+    dcmotorpid1.SetMode(MANUAL); // turns off PID, resets when turned on again
+    dcmotorpid2.SetMode(MANUAL); // turns off PID, resets when turned on again
+    analogWrite(DCMOTORENABLE1, 0);
+    analogWrite(DCMOTORENABLE2, 0);
+    dcmotorenc1.write(0);
+    dcmotorenc2.write(0);
+  }
+}
+
+void left() {
+  // turns on PID control software 
+  dcmotorpid1.SetMode(AUTOMATIC);
+  dcmotorpid2.SetMode(AUTOMATIC);
+  
+  if (true) {
+    return;
+  }
+  else if (false) {
+    dcmotorpid1.SetMode(MANUAL); // turns off PID, resets when turned on again
+    dcmotorpid2.SetMode(MANUAL); // turns off PID, resets when turned on again
+    analogWrite(DCMOTORENABLE1, 0);
+    analogWrite(DCMOTORENABLE2, 0);
+    dcmotorenc1.write(0);
+    dcmotorenc2.write(0);
+  }
+}
+
+void reverse() {
+  // turns on PID control software 
+  dcmotorpid1.SetMode(AUTOMATIC);
+  dcmotorpid2.SetMode(AUTOMATIC);
+  
+  if (true) {
+    return;
+  }
+  else if (false) {
+    dcmotorpid1.SetMode(MANUAL); // turns off PID, resets when turned on again
+    dcmotorpid2.SetMode(MANUAL); // turns off PID, resets when turned on again
+    analogWrite(DCMOTORENABLE1, 0);
+    analogWrite(DCMOTORENABLE2, 0);
+    dcmotorenc1.write(0);
+    dcmotorenc2.write(0);
+  }
 }
 
