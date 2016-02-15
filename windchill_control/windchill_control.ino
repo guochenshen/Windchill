@@ -35,8 +35,8 @@
 #define PIN1 1 // TX0 & USB TO TTL
 #define PIN2 2 // INT0 & PWM
 #define PIN3 3 // INT1 & PWM
-#define PIN4 4 // PWM
-#define PIN5 5 // PWM
+#define LIMIT1 4 // PWM
+#define LIMIT2 5 // PWM
 #define PIN6 6 // PWM
 #define PIN7 7 // PWM
 #define PIN8 8 // PWM
@@ -103,6 +103,12 @@ double position_y; // [m]
 double max_x; // [m]
 double max_y; // [m]
 
+//volatile bool limit1;
+//volatile bool limit2;
+//long limit_debounce = 15;
+//volatile unsigned long debounce1 = 0;
+//volatile unsigned long debounce2 = 0;
+
 // encoder data objects
 Encoder dcmotorenc1(DCMOTORENCODER1CHA, DCMOTORENCODER1CHB);
 Encoder dcmotorenc2(DCMOTORENCODER2CHA, DCMOTORENCODER2CHB);
@@ -141,7 +147,6 @@ void setup() {
   savestate = NULL;
   // begin serial
   Serial.begin(9600);
-  
 
   // dc motor output pins
   pinMode(DCMOTORENABLE1, OUTPUT);
@@ -151,8 +156,16 @@ void setup() {
   pinMode(DCMOTORL3, OUTPUT);
   pinMode(DCMOTORL4, OUTPUT);
 
+  // limit switch interrupt routine
+  //attachInterrupt(digitalPinToInterrupt(LIMIT1), intrpt_switch1, CHANGE);
+  //attachInterrupt(digitalPinToInterrupt(LIMIT2), intrpt_switch2, CHANGE);
+  pinMode(LIMIT1, INPUT_PULLUP);
+  pinMode(LIMIT2, INPUT_PULLUP);
+
   // set dc motors to turn off and reset
   dcmotorreset();
+  // limit switch reset
+  //limitreset();
   // reset values for next state
   exitstate();
 }
@@ -174,7 +187,7 @@ void standby() {
   digitalWrite(DCMOTORL3, LOW);
   digitalWrite(DCMOTORL4, LOW);
   if (((micros() - prevtime) / 1000000) > 1) {
-    state = &right;
+    state = &forward_climb;
     prevtime = micros();
   }
   else {
@@ -194,12 +207,12 @@ void calibrate() {
 }
 
 void forward() {
-  DEBUG_PRINT("forward state");
+  DEBUG_PRINT("Forward State");
   // turns on PID control 
   dcmotorpidon();
 
-  dcmotordirection(0, 1);
-  dcmotordirection(1, 1);
+  dcmotordirection(0, FORWARD);
+  dcmotordirection(1, FORWARD);
   analogWrite(DCMOTORENABLE1, 96);
   analogWrite(DCMOTORENABLE2, 96);
   
@@ -222,6 +235,17 @@ void forward_climb() {
   dcmotordirection(1, FORWARD);
   analogWrite(DCMOTORENABLE1, 96);
   analogWrite(DCMOTORENABLE2, 96);
+
+  if (readlimit1() == LOW) {
+    dcmotoroff();
+    delay(500);
+    dcmotorreset();
+    state = &right;
+    exitstate(); 
+  }
+  else {
+    return;
+  }
 }
 
 void forward_descend() {
@@ -254,8 +278,10 @@ void right() {
   analogWrite(DCMOTORENABLE2, 96);
   
   if (abs(dcmotorenc1.read()) > 720) {
+    dcmotoroff();
+    delay(500);
     dcmotorreset();
-    state = &forward;
+    state = &forward_climb;
     exitstate();
     savestate = NULL;
   }
@@ -266,18 +292,31 @@ void right() {
 
 void left() {
   DEBUG_PRINT("Left State");
+  if (savestate != state) {
+    savestate = &left;
+    state= &reverse_turn;
+  }
+  else {
+    savestate = &left;
+  }
   // turns on PID control software 
   dcmotorpidon();
 
   dcmotordirection(0, BACKWARD);
   dcmotordirection(1, FORWARD);
+  analogWrite(DCMOTORENABLE1, 155);
+  analogWrite(DCMOTORENABLE2, 96);
   
-  if (true) {
-    return;
-  }
-  else if (false) {
+  if (abs(dcmotorenc1.read()) > 720) {
+    dcmotoroff();
+    delay(500);
     dcmotorreset();
+    state = &forward_climb;
     exitstate();
+    savestate = NULL;
+  }
+  else {
+    return;
   }
 }
 
@@ -310,6 +349,8 @@ void reverse_turn() {
 
   // perform short backup and return to previous state
   if (abs(dcmotorenc1.read()) > 720) {
+    dcmotoroff();
+    delay(500);
     state = savestate;
     dcmotorreset();
     exitstate();
@@ -333,6 +374,11 @@ void dcmotorreset() {
   digitalWrite(DCMOTORL2, LOW);
   digitalWrite(DCMOTORL3, LOW);
   digitalWrite(DCMOTORL4, LOW);
+}
+
+void dcmotoroff() {
+  analogWrite(DCMOTORENABLE1, 0);
+  analogWrite(DCMOTORENABLE2, 0);
 }
 
 /*
@@ -377,6 +423,37 @@ void dcmotordirection(int motor, int d) {
     }
   }
 }
+
+// ********** LIMIT SWITCH UTILITY FUNCTIONS **********
+
+int readlimit1() {
+  return digitalRead(LIMIT1);
+}
+
+int readlimit2() {
+  return digitalRead(LIMIT2);
+}
+
+
+
+//void limitreset() {
+//  limit1 = false;
+//  limit2 = false;
+//}
+
+//void intrpt_switch1() {
+//    if((long)(micros() - debounce1) >= limit_debounce * 1000) {
+//     limit1 = !limit1;
+//     debounce1 = micros();
+//    }
+//}
+//
+//void intrpt_switch2() {
+//     if((long)(micros() - debounce2) >= limit_debounce *1000) {
+//     limit2 = !limit2;
+//     debounce2 = micros();
+//    }
+//}
 
 
 // ********** STATE UTILITY FUNCTIONS **********
