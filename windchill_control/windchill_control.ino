@@ -7,6 +7,7 @@
 #include <PID_v1.h>
 #include <Encoder.h>
 
+// comment out #define DEBUG to disable debug printing
 #define DEBUG
 #ifdef DEBUG
   #define DEBUG_PRINT(x) Serial.println(x)
@@ -14,6 +15,7 @@
   #define DEBUG_PRINT(x)
 #endif
 
+// analog input pins
 #define SENSOR0 A0
 #define SENSOR1 A1
 #define SENSOR2 A2
@@ -31,6 +33,7 @@
 #define SENSOR14 A14
 #define SENSOR15 A15
 
+// digital pins
 #define PIN0 0 // RX0 & USB TO TTL
 #define PIN1 1 // TX0 & USB TO TTL
 #define PIN2 2 // INT0 & PWM
@@ -88,13 +91,18 @@
 #define PIN54 54
 #define PIN55 55
 
-#define REVOLUTION 720 // encoder ticks per revolution
+#define DCENCODERREVOLUTION 4741.44 // encoder ticks per revolution
 
+// macros to define dc motors
+#define DCLEFT 0;
+#define DCRIGHT 1;
+
+// macros to define direcction
 #define FORWARD 1
 #define BACKWARD -1
 
 void (*state)(void); // current state of the machine
-void (*savestate)(void); // saved state for returning to state
+void (*savestate)(void); // saved state for returning to a state
 
 // position of the device relative to bottom left corner
 double position_x; // [m]
@@ -103,47 +111,43 @@ double position_y; // [m]
 double max_x; // [m]
 double max_y; // [m]
 
-//volatile bool limit1;
-//volatile bool limit2;
-//long limit_debounce = 15;
-//volatile unsigned long debounce1 = 0;
-//volatile unsigned long debounce2 = 0;
-
 // encoder data objects
 Encoder dcmotorenc1(DCMOTORENCODER1CHA, DCMOTORENCODER1CHB);
 Encoder dcmotorenc2(DCMOTORENCODER2CHA, DCMOTORENCODER2CHB);
-int32_t prevenc1;
-int32_t prevenc2;
-double prevvel1;
-double prevvel2;
+int32_t prevenc1; // previous encoder 1 position reading
+int32_t prevenc2; // previous encoder 2 position reading
+double prevvel1; // previous encoder 1 velocity reading
+double prevvel2; // previous encoder 2 velocity reading
 
 // time values
-unsigned long prevtime;
+unsigned long prevtime; // previous time, used for velocity calculations
 
 // PID values for dc motor 1
-double dcsetpoint1;
-double dcinput1;
-double dcoutput1;
+double dcsetpoint1; // setpoint
+double dcinput1; // input value
+double dcoutput1; // output PWM value
 // PID constants dc motor 1
 double kp1 = 10.0;
 double ki1 = 0.0;
 double kd1 = 0.0;
 // PID values for dc motor 2
-double dcsetpoint2;
-double dcinput2;
-double dcoutput2;
+double dcsetpoint2; // setpoint
+double dcinput2; // input value
+double dcoutput2; // output PWM value
 // PID constants for dc motor 2
 double kp2 = 10.0;
 double ki2 = 0.0;
 double kd2 = 0.0;
 
+// PID objects
 PID dcmotorpid1(&dcinput1, &dcoutput1, &dcsetpoint1, kp1, ki1, kd1, DIRECT);
 PID dcmotorpid2(&dcinput2, &dcoutput2, &dcsetpoint2, kp2, ki2, kd2, DIRECT);
 
-// initializes the pins
+// initializes the system
 void setup() {
-  // sets initial state to on procedure
+  // sets initial state to on state
   state = &on;
+  // set save state as null
   savestate = NULL;
   // begin serial
   Serial.begin(9600);
@@ -156,49 +160,69 @@ void setup() {
   pinMode(DCMOTORL3, OUTPUT);
   pinMode(DCMOTORL4, OUTPUT);
 
-  // limit switch interrupt routine
-  //attachInterrupt(digitalPinToInterrupt(LIMIT1), intrpt_switch1, CHANGE);
-  //attachInterrupt(digitalPinToInterrupt(LIMIT2), intrpt_switch2, CHANGE);
+  // limit switch input pins
+  // HIGH when not triggered, LOW when triggered
   pinMode(LIMIT1, INPUT_PULLUP);
   pinMode(LIMIT2, INPUT_PULLUP);
 
-  // set dc motors to turn off and reset
+  // set dc motors to turn off and reset PID
   dcmotorreset();
-  // limit switch reset
-  //limitreset();
   // reset values for next state
   exitstate();
 }
 
-// runs function of whichever state the system is currently in
+// main loop of state machine
+// runs current function of state machine
 void loop() {
+  // check adhesion to window, adjust fan speed to ensure adhesion
+  // check_fan();
   (*state)();
 }
 
-// all systems powered but not performing any actions
-// can transition to state of performing actions
-void standby() {
-  DEBUG_PRINT("standby state");
-  // TURNS BOTH DC MOTORS OFF
-  analogWrite(DCMOTORENABLE1, 0);
-  analogWrite(DCMOTORENABLE2, 0);
-  digitalWrite(DCMOTORL1, LOW);
-  digitalWrite(DCMOTORL2, LOW);
-  digitalWrite(DCMOTORL3, LOW);
-  digitalWrite(DCMOTORL4, LOW);
-  if (((micros() - prevtime) / 1000000) > 1) {
-    state = &forward_climb;
-    prevtime = micros();
+// turns the device on and performs all checks necessary before starting
+void on() {
+  // check all systems to ensure funtionality
+
+  // once system is placed onto window, system switches to standy
+  if (true) {
+    state = &standby;
+    exitstate();
+  }
+}
+
+// calibrates the system and determines position
+void calibrate() {
+  // calibrate and determine position
+
+  // once calibration is complete, return to standby state
+  if (true) {
+    state = &standby;
   }
   else {
     return;
   }
 }
 
-// turns the device on and performs all checks necessary
-void on() {
-  state = &standby;
-  return;
+// all systems powered but not performing any actions
+// can transition to state of performing actions
+void standby() {
+  DEBUG_PRINT("STANDBY STATE");
+
+  // turns both dc motors off
+    dcmotoroff();
+    
+  // temporary, check time passage, future will be on button push
+  if (((micros() - prevtime) / 1000000) > 1) {
+    state = &forward_climb;
+    prevtime = micros();
+  }
+  // checks if calibrate button is pushed
+  else if (false) {
+    state = &calibrate;
+  }
+  else {
+    return;
+  }
 }
 
 // reads sensors to determine location of the device relative to its environment
@@ -208,14 +232,14 @@ void calibrate() {
 
 void forward() {
   DEBUG_PRINT("Forward State");
-  // turns on PID control 
+  // turns on PID control
   dcmotorpidon();
 
-  dcmotordirection(0, FORWARD);
-  dcmotordirection(1, FORWARD);
-  analogWrite(DCMOTORENABLE1, 96);
-  analogWrite(DCMOTORENABLE2, 96);
-  
+  dcmotordirection(DCLEFT, FORWARD);
+  dcmotordirection(DCRIGHT, FORWARD);
+  analogWrite(DCMOTORENABLE1,255);
+  analogWrite(DCMOTORENABLE2, 255);
+
   if (abs(dcmotorenc1.read()) > 720) {
     dcmotorreset();
     state = &right;
@@ -233,15 +257,15 @@ void forward_climb() {
 
   dcmotordirection(0, FORWARD);
   dcmotordirection(1, FORWARD);
-  analogWrite(DCMOTORENABLE1, 96);
-  analogWrite(DCMOTORENABLE2, 96);
+  analogWrite(DCMOTORENABLE1, 255);
+  analogWrite(DCMOTORENABLE2, 255);
 
-  if (readlimit1() == LOW) {
+  if (readlimit(1) == LOW) {
     dcmotoroff();
-    delay(500);
+    delay(250);
     dcmotorreset();
     state = &right;
-    exitstate(); 
+    exitstate();
   }
   else {
     return;
@@ -255,8 +279,8 @@ void forward_descend() {
 
   dcmotordirection(0, FORWARD);
   dcmotordirection(0, FORWARD);
-  analogWrite(DCMOTORENABLE1, 155);
-  analogWrite(DCMOTORENABLE2, 96);
+  analogWrite(DCMOTORENABLE1, 255);
+  analogWrite(DCMOTORENABLE2, 255);
 }
 
 void right() {
@@ -268,16 +292,16 @@ void right() {
   else {
     savestate = &right;
   }
-  
-  // turns on PID control software 
+
+  // turns on PID control software
   dcmotorpidon();
 
-  dcmotordirection(0, FORWARD);
-  dcmotordirection(1, BACKWARD);
-  analogWrite(DCMOTORENABLE1, 155);
-  analogWrite(DCMOTORENABLE2, 96);
-  
-  if (abs(dcmotorenc1.read()) > 90) {
+  dcmotordirection(DCLEFT, FORWARD);
+  dcmotordirection(DCRIGHT, BACKWARD);
+  analogWrite(DCMOTORENABLE1, 255);
+  analogWrite(DCMOTORENABLE2, 255);
+
+  if (abs(dcmotorenc1.read()) > 720) {
     dcmotoroff();
     delay(500);
     dcmotorreset();
@@ -299,14 +323,14 @@ void left() {
   else {
     savestate = &left;
   }
-  // turns on PID control software 
+  // turns on PID control software
   dcmotorpidon();
 
   dcmotordirection(0, BACKWARD);
   dcmotordirection(1, FORWARD);
-  analogWrite(DCMOTORENABLE1, 155);
-  analogWrite(DCMOTORENABLE2, 96);
-  
+  analogWrite(DCMOTORENABLE1, 255);
+  analogWrite(DCMOTORENABLE2, 255);
+
   if (abs(dcmotorenc1.read()) > 90) {
     dcmotoroff();
     delay(500);
@@ -322,16 +346,16 @@ void left() {
 
 void reverse() {
   DEBUG_PRINT("Reverse State");
-  // turns on PID control software 
+  // turns on PID control software
   dcmotorpidon();
-  
+
   if (true) {
     return;
   }
   else if (false) {
     dcmotorreset();
     exitstate();
-  } 
+  }
 }
 
 /*
@@ -344,11 +368,11 @@ void reverse_turn() {
 
   dcmotordirection(0, BACKWARD);
   dcmotordirection(1, BACKWARD);
-  analogWrite(DCMOTORENABLE1,155);
-  analogWrite(DCMOTORENABLE2, 96);
+  analogWrite(DCMOTORENABLE1,255);
+  analogWrite(DCMOTORENABLE2, 255);
 
   // perform short backup and return to previous state
-  if (abs(dcmotorenc1.read()) > 720) {
+  if (abs(dcmotorenc1.read()) > 360) {
     dcmotoroff();
     delay(500);
     state = savestate;
@@ -426,35 +450,18 @@ void dcmotordirection(int motor, int d) {
 
 // ********** LIMIT SWITCH UTILITY FUNCTIONS **********
 
-int readlimit1() {
-  return digitalRead(LIMIT1);
+int readlimit(int limit) {
+  int value;
+  switch (limit) {
+    case 0: value = digitalRead(LIMIT1);
+      break;
+    case 1: value = digitalRead(LIMIT2);
+      break;
+    default: value = NULL;
+      break;
+  }
+  return value;
 }
-
-int readlimit2() {
-  return digitalRead(LIMIT2);
-}
-
-
-
-//void limitreset() {
-//  limit1 = false;
-//  limit2 = false;
-//}
-
-//void intrpt_switch1() {
-//    if((long)(micros() - debounce1) >= limit_debounce * 1000) {
-//     limit1 = !limit1;
-//     debounce1 = micros();
-//    }
-//}
-//
-//void intrpt_switch2() {
-//     if((long)(micros() - debounce2) >= limit_debounce *1000) {
-//     limit2 = !limit2;
-//     debounce2 = micros();
-//    }
-//}
-
 
 // ********** STATE UTILITY FUNCTIONS **********
 
@@ -467,4 +474,3 @@ void exitstate() {
   dcmotorenc1.write(0);
   dcmotorenc2.write(0);
 }
-
