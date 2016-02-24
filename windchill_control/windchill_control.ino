@@ -6,6 +6,7 @@
 
 #include <PID_v1.h>
 #include <Encoder.h>
+#include <NewPing.h>
 
 // comment out #define DEBUG to disable debug printing
 #define DEBUG
@@ -38,14 +39,14 @@
 #define PIN1 1 // TX0 & USB TO TTL
 #define PIN2 2 // INT0 & PWM
 #define PIN3 3 // INT1 & PWM
-#define LIMIT1 4 // PWM
-#define LIMIT2 5 // PWM
-#define PIN6 6 // PWM
-#define PIN7 7 // PWM
-#define PIN8 8 // PWM
-#define PIN9 9 // PWM
-#define PIN10 10 // PWM
-#define PIN11 11 // PWM
+#define ULTRA1A 4 // PWM
+#define ULTRA1B 5 // PWM
+#define ULTRA2A 6 // PWM
+#define ULTRA2B 7 // PWM
+#define ULTRA3A 8 // PWM
+#define ULTRA3B 9 // PWM
+#define ULTRA4A 10 // PWM
+#define ULTRA4B 11 // PWM
 #define PIN12 12 // PWM
 #define PIN13 13 // LED & PWM
 #define PIN14 14 // TX3
@@ -56,14 +57,14 @@
 #define DCMOTORENCODER1CHB 19 // RX1 & INT4
 #define DCMOTORENCODER2CHA 20 // INT3
 #define DCMOTORENCODER2CHB 21 // INT2
-#define PIN22 22
-#define PIN23 23
-#define PIN24 24
-#define PIN25 25
-#define PIN26 26
-#define PIN27 27
-#define PIN28 28
-#define PIN29 29
+#define LIMITFRONT1 22
+#define LIMITFRONT2 23
+#define LIMITLEFT1 24
+#define LIMITLEFT2 25
+#define LIMITRIGHT1 26
+#define LIMITRIGHT2 27
+#define LIMITREAR1 28
+#define LIMITREAR2 29
 #define PIN30 30
 #define PIN31 31
 #define PIN32 32
@@ -92,14 +93,20 @@
 #define PIN55 55
 
 #define DCENCODERREVOLUTION 4741.44 // encoder ticks per revolution
+#define ULTRAMAXDISTANCE 200 // max distance of ultrasonic in cm
 
 // macros to define dc motors
-#define DCLEFT 0;
-#define DCRIGHT 1;
+#define DCLEFT 0
+#define DCRIGHT 1
 
 // macros to define direcction
 #define FORWARD 1
 #define BACKWARD -1
+
+#define FRONT 0
+#define LEFT 1
+#define RIGHT 2
+#define REAR 3
 
 void (*state)(void); // current state of the machine
 void (*savestate)(void); // saved state for returning to a state
@@ -118,6 +125,12 @@ int32_t prevenc1; // previous encoder 1 position reading
 int32_t prevenc2; // previous encoder 2 position reading
 double prevvel1; // previous encoder 1 velocity reading
 double prevvel2; // previous encoder 2 velocity reading
+
+// ultrasonic distance data objects
+NewPing frontdistance(ULTRA1A, ULTRA1B, ULTRAMAXDISTANCE);
+NewPing leftdistance(ULTRA2A, ULTRA2B, ULTRAMAXDISTANCE);
+NewPing rightdistance(ULTRA3A, ULTRA3B, ULTRAMAXDISTANCE);
+NewPing reardistance(ULTRA4A, ULTRA4B, ULTRAMAXDISTANCE);
 
 // time values
 unsigned long prevtime; // previous time, used for velocity calculations
@@ -146,7 +159,7 @@ PID dcmotorpid2(&dcinput2, &dcoutput2, &dcsetpoint2, kp2, ki2, kd2, DIRECT);
 // initializes the system
 void setup() {
   // sets initial state to on state
-  state = &on;
+  state = &read_enc;
   // set save state as null
   savestate = NULL;
   // begin serial
@@ -162,8 +175,14 @@ void setup() {
 
   // limit switch input pins
   // HIGH when not triggered, LOW when triggered
-  pinMode(LIMIT1, INPUT_PULLUP);
-  pinMode(LIMIT2, INPUT_PULLUP);
+  pinMode(LIMITFRONT1, INPUT_PULLUP);
+  pinMode(LIMITFRONT2, INPUT_PULLUP);
+  pinMode(LIMITRIGHT1, INPUT_PULLUP);
+  pinMode(LIMITRIGHT2, INPUT_PULLUP);
+  pinMode(LIMITLEFT1, INPUT_PULLUP);
+  pinMode(LIMITLEFT2, INPUT_PULLUP);
+  pinMode(LIMITREAR2, INPUT_PULLUP);
+  pinMode(LIMITREAR2, INPUT_PULLUP);
 
   // set dc motors to turn off and reset PID
   dcmotorreset();
@@ -177,6 +196,17 @@ void loop() {
   // check adhesion to window, adjust fan speed to ensure adhesion
   // check_fan();
   (*state)();
+}
+
+void read_enc() {
+  dcmotordirection(DCLEFT, FORWARD);
+  dcmotordirection(DCRIGHT, FORWARD);
+  analogWrite(DCMOTORENABLE1,255);
+  analogWrite(DCMOTORENABLE2,255);
+  DEBUG_PRINT("DCMOTOR1");
+  DEBUG_PRINT(dcmotorenc1.read());
+  DEBUG_PRINT("DCMOTOR2");
+  DEBUG_PRINT(dcmotorenc2.read());
 }
 
 // turns the device on and performs all checks necessary before starting
@@ -206,11 +236,11 @@ void calibrate() {
 // all systems powered but not performing any actions
 // can transition to state of performing actions
 void standby() {
-  DEBUG_PRINT("STANDBY STATE");
+  DEBUG_PRINT("Standby State");
 
   // turns both dc motors off
     dcmotoroff();
-    
+
   // temporary, check time passage, future will be on button push
   if (((micros() - prevtime) / 1000000) > 1) {
     state = &forward_climb;
@@ -223,11 +253,6 @@ void standby() {
   else {
     return;
   }
-}
-
-// reads sensors to determine location of the device relative to its environment
-void calibrate() {
-  return;
 }
 
 void forward() {
@@ -250,6 +275,7 @@ void forward() {
   }
 }
 
+// moves forward climbing a wall
 void forward_climb() {
   DEBUG_PRINT("Forward Climb State");
   // turns on PID control
@@ -272,6 +298,7 @@ void forward_climb() {
   }
 }
 
+// moves forward descending a wall
 void forward_descend() {
   DEBUG_PRINT("Forward Descend State");
   // turns on PID control
@@ -453,15 +480,48 @@ void dcmotordirection(int motor, int d) {
 int readlimit(int limit) {
   int value;
   switch (limit) {
-    case 0: value = digitalRead(LIMIT1);
+    case LIMITFRONT1: value = digitalRead(LIMITFRONT1);
       break;
-    case 1: value = digitalRead(LIMIT2);
+    case LIMITFRONT2: value = digitalRead(LIMITFRONT2);
+      break;
+    case LIMITLEFT1: value = digitalRead(LIMITLEFT1);
+      break;
+    case LIMITLEFT2: value = digitalRead(LIMITLEFT2);
+      break;
+    case LIMITRIGHT1: value = digitalRead(LIMITRIGHT1);
+      break;
+    case LIMITRIGHT2: value = digitalRead(LIMITRIGHT2);
+      break;
+    case LIMITREAR1: value = digitalRead(LIMITREAR1);
+      break;
+    case LIMITREAR2: value = digitalRead(LIMITREAR2);
       break;
     default: value = NULL;
       break;
   }
   return value;
 }
+
+// ********** ULTRASONIC DISTANCE SENSOR UTILITY FUNCTIONS **********
+
+int readdistance(int sensor) {
+  int value;
+  switch (sensor) {
+    case FRONT: value = frontdistance.ping_cm();
+      break;
+     case LEFT: value = leftdistance.ping_cm();
+      break;
+     case RIGHT: value = rightdistance.ping_cm();
+      break;
+     case REAR: value = reardistance.ping_cm();
+      break;
+     default: value = NULL;
+      break;
+  }
+  return value;
+}
+
+
 
 // ********** STATE UTILITY FUNCTIONS **********
 
