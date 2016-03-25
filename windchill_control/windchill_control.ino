@@ -9,12 +9,17 @@
 #include <Encoder.h> // Encoder Library
 #include <NewPing.h> // Ultrasonic Distance Sensor Library
 #include <SoftwareSerial.h> // Software Serial Library
+#include <Wire.h> // Serial Communication Library
+#include <Adafruit_Sensor.h> // Adafruit Unified Sensor Library
+#include <Adafruit_BNO055.h> // Adafruit BNO055 IMU Library
 #include <stdlib.h> // C++ stdlib
 
 // comment out #define DEBUG to disable debug printing
-//#define DEBUG
+#define DEBUG
 #ifdef DEBUG
+// switch lines to change serial printing to bluetooth printing
   #define DEBUG_PRINT(x) Serial.println(x)
+//#define DEBUG_PRINT(x) bluetooth.println(x)
 #else
   #define DEBUG_PRINT(x)
 #endif
@@ -40,34 +45,34 @@
 // digital pins
 #define PIN0 0 // RX0 & USB TO TTL
 #define PIN1 1 // TX0 & USB TO TTL
-#define PIN2 2 // INT0 & PWM
-#define PIN3 3 // INT1 & PWM
-#define ULTRA1A 4 // PWM - ultrasonic distance 1 trigger
-#define ULTRA1B 5 // PWM - ultrasonic distance 1 echo
-#define ULTRA2A 6 // PWM - ultrasonic distance 2 trigger
-#define ULTRA2B 7 // PWM - utlrasonic distance 2 echo
-#define ULTRA3A 8 // PWM - ultrasonic distance 3 triggger
-#define ULTRA3B 9 // PWM - ultrasonic distance 3 echo
-#define ULTRA4A 10 // PWM - ultrasonic distance 4 trigger
-#define ULTRA4B 11 // PWM - ultrasonic distance 4 echo
+#define DCMOTORENCODER1CHA 2 // INT0 & PWM
+#define DCMOTORENCODER1CHB 3 // INT1 & PWM
+#define ULTRA1 4 // PWM - ultrasonic distance 1 trigger
+#define ULTRA2 5 // PWM - ultrasonic distance 1 echo
+#define ULTRA3 6 // PWM - ultrasonic distance 2 trigger
+#define ULTRA4 7 // PWM - utlrasonic distance 2 echo
+#define PIN8 8 // PWM - ultrasonic distance 3 triggger
+#define PIN9 9 // PWM - ultrasonic distance 3 echo
+#define PIN10 10 // PWM - ultrasonic distance 4 trigger
+#define PIN11 11 // PWM - ultrasonic distance 4 echo
 #define PIN12 12 // PWM
 #define PIN13 13 // LED & PWM
 #define PIN14 14 // TX3
 #define PIN15 15 // RX3
 #define PIN16 16 // TX2
 #define PIN17 17 // RX2
-#define DCMOTORENCODER1CHA 18// TX1 & INT5 - dc motor encoder 1 channel a
-#define DCMOTORENCODER1CHB 19 // RX1 & INT4 - dc motor encoder 1 channel b
-#define DCMOTORENCODER2CHA 20 // INT3 - dc motor encoder 2 channel a
-#define DCMOTORENCODER2CHB 21 // INT2 - dc motor encoder 2 channel b
+#define DCMOTORENCODER2CHA 18// TX1 & INT5 - dc motor encoder 1 channel a
+#define DCMOTORENCODER2CHB 19 // RX1 & INT4 - dc motor encoder 1 channel b
+#define IMU1 20 // INT3 - dc motor encoder 2 channel a
+#define IMU2 21 // INT2 - dc motor encoder 2 channel b
 #define LIMITFRONT1 22 // limit switch front 1
 #define LIMITFRONT2 23 // limit switch front 2
-#define LIMITLEFT1 24 // limit switch left 1
-#define LIMITLEFT2 25 // limit switch left 2
-#define LIMITRIGHT1 26 // limit switch right 1
-#define LIMITRIGHT2 27 // limit switch right 2
-#define LIMITREAR1 28 // limit switch rear 1
-#define LIMITREAR2 29 // limit switch rear 2
+#define PIN24 24 // limit switch left 1
+#define PIN25 25 // limit switch left 2
+#define PIN26 26 // limit switch right 1
+#define PIN27 27 // limit switch right 2
+#define PIN28 28 // limit switch rear 1
+#define PIN29 29 // limit switch rear 2
 #define PIN30 30
 #define PIN31 31
 #define PIN32 32
@@ -144,10 +149,10 @@ double prevvel1; // previous encoder 1 velocity reading
 double prevvel2; // previous encoder 2 velocity reading
 
 // ultrasonic distance data objects
-NewPing frontdistance(ULTRA1A, ULTRA1B, ULTRAMAXDISTANCE);
-NewPing leftdistance(ULTRA2A, ULTRA2B, ULTRAMAXDISTANCE);
-NewPing rightdistance(ULTRA3A, ULTRA3B, ULTRAMAXDISTANCE);
-NewPing reardistance(ULTRA4A, ULTRA4B, ULTRAMAXDISTANCE);
+NewPing frontdistance(ULTRA1, ULTRA1, ULTRAMAXDISTANCE);
+NewPing leftdistance(ULTRA2, ULTRA2, ULTRAMAXDISTANCE);
+NewPing rightdistance(ULTRA3, ULTRA3, ULTRAMAXDISTANCE);
+NewPing reardistance(ULTRA4, ULTRA4, ULTRAMAXDISTANCE);
 
 // time values
 unsigned long prevtime; // previous time, used for velocity calculations
@@ -176,14 +181,28 @@ PID dcmotorpid2(&dcinput2, &dcoutput2, &dcsetpoint2, kp2, ki2, kd2, DIRECT);
 // Bluetooth object
 SoftwareSerial bluetooth(BLUETOOTHTX, BLUETOOTHRX);
 
+// IMU object
+Adafruit_BNO055 bno = Adafruit_BNO055(55);
+
 // initializes the system
 void setup() {
   // sets initial state to on state
   state = &on;
   // set save state as null
   savestate = NULL;
+  
   // begin serial
   Serial.begin(9600);
+
+  // configures and starts bluetooth
+  bluetooth.begin(115200);  // The Bluetooth Mate defaults to 115200bps
+  bluetooth.print("$");  // Print three times individually to enter command mode
+  bluetooth.print("$");
+  bluetooth.print("$");  // Enter command mode
+  delay(100);  // Short delay, wait for the Mate to send back CMD
+  bluetooth.println("U,9600,N");  // Temporarily Change the baudrate to 9600, no parity
+  // 115200 can be too fast at times for NewSoftSerial to relay the data reliably
+  bluetooth.begin(9600);  // Start bluetooth serial at 9600
 
   // dc motor output pins
   pinMode(DCMOTORENABLE1, OUTPUT);
@@ -204,28 +223,73 @@ void setup() {
   pinMode(LIMITREAR2, INPUT_PULLUP);
   pinMode(LIMITREAR2, INPUT_PULLUP);
 
-  // configures bluetooth
-  bluetooth.begin(115200);  // The Bluetooth Mate defaults to 115200bps
-  bluetooth.print("$");  // Print three times individually to enter command mode
-  bluetooth.print("$");
-  bluetooth.print("$");  // Enter command mode
-  delay(100);  // Short delay, wait for the Mate to send back CMD
-  bluetooth.println("U,9600,N");  // Temporarily Change the baudrate to 9600, no parity
-  // 115200 can be too fast at times for NewSoftSerial to relay the data reliably
-  bluetooth.begin(9600);  // Start bluetooth serial at 9600
-
+  /* Initialise the sensor */
+  if(!bno.begin()) {
+    /* There was a problem detecting the BNO055 ... check your connections */
+    DEBUG_PRINT("No BNO055 Detected");
+  }
+  
   // set dc motors to turn off and reset PID
   dcmotorreset();
   // reset values for next state
   exitstate();
 }
 
+/*
+ * reset dc motors and PID
+ */
+void dcmotorreset() {
+  // turns off PID control and resets it
+  dcmotorpid1.SetMode(MANUAL);
+  dcmotorpid2.SetMode(MANUAL);
+  // disable motors
+  analogWrite(DCMOTORENABLE1, 0);
+  analogWrite(DCMOTORENABLE2, 0);
+  // reset directions
+  digitalWrite(DCMOTORL1, LOW);
+  digitalWrite(DCMOTORL2, LOW);
+  digitalWrite(DCMOTORL3, LOW);
+  digitalWrite(DCMOTORL4, LOW);
+  dcmotorenc1.write(0);
+  dcmotorenc2.write(0);
+}
+
+/*
+ * exit state procedure
+ * called when state is changed
+ * tidies up variables for next state
+ */
+void exitstate() {
+  // saves the approximate time the state is transitioned
+  prevtime = micros();
+  // resets the readings on the encoders
+  dcmotorenc1.write(0);
+  dcmotorenc2.write(0);
+}
+
+void get_position() {
+  unsigned long front = frontdistance.ping_cm();
+  unsigned long left = leftdistance.ping_cm();
+  unsigned long right = rightdistance.ping_in();
+  unsigned long rear = reardistance.ping_in();
+
+  sensors_event_t event;
+  bno.getEvent(&event);
+
+  double bounds = 5; // 5 degrees is acceptable
+
+  // y and z axes not relevant
+  double angle = event.orientation.x;
+
+  if (
+  
+}
+
 // main loop of state machine
 // runs current function of state machine
 void loop() {
-  // check adhesion to window, adjust fan speed to ensure adhesion
-  // check_fan();
-  (*state)();
+
+  (*state)();  
 }
 
 // turns the device on and performs all checks necessary before starting
@@ -261,11 +325,8 @@ void calibrate() {
   right /= ULTRACALREADINGS;
   rear /= ULTRACALREADINGS;
 
-  max_x = front + rear + DEVICE_X;
-  max_y = left + right + DEVICE_Y;
-
-  position_x = rear + DEVICE_X;
-  position_y = right + DEVICE_Y;
+  position_x = front + rear + DEVICE_X;
+  position_y = left + right + DEVICE_Y;
 
   // once calibration is complete, return to standby state
   if (true) {
@@ -286,7 +347,7 @@ void standby() {
     dcmotoroff();
 
   // temporary, check time passage, future will be on button push
-  if (((micros() - prevtime) / 1000000) > 1) {
+  if (((micros() - prevtime) / 100000) > 1) {
     state = &forward_right;
     exitstate();
   }
@@ -309,6 +370,7 @@ void forward_right() {
   dcmotordirection(DCRIGHT, FORWARD);
   analogWrite(DCMOTORENABLE1, 255);
   analogWrite(DCMOTORENABLE2, 255);
+  DEBUG_PRINT(readlimit(LIMITFRONT1));
 
   if (readlimit(LIMITFRONT1) == LOW) {
     dcmotoroff();
@@ -386,6 +448,7 @@ void left_uturn() {
 void move_distance(double distance) {
   DEBUG_PRINT("Move Distance");
   // turns on PID control software
+  dcmotorreset();
   dcmotorpidon();
 
   if (distance > 0) {
@@ -393,6 +456,7 @@ void move_distance(double distance) {
     dcmotordirection(DCRIGHT, FORWARD);
   }
   else if (distance < 0) {
+    DEBUG_PRINT("x");
     dcmotordirection(DCLEFT, BACKWARD);
     dcmotordirection(DCRIGHT, BACKWARD);
   }
@@ -542,19 +606,6 @@ void reverse_turn() {
 
 // ********** MOTOR UTILITY FUNCTIONS **********
 
-/*
- * reset dc motors and PID
- */
-void dcmotorreset() {
-  dcmotorpid1.SetMode(MANUAL);
-  dcmotorpid2.SetMode(MANUAL);
-  analogWrite(DCMOTORENABLE1, 0);
-  analogWrite(DCMOTORENABLE2, 0);
-  digitalWrite(DCMOTORL1, LOW);
-  digitalWrite(DCMOTORL2, LOW);
-  digitalWrite(DCMOTORL3, LOW);
-  digitalWrite(DCMOTORL4, LOW);
-}
 
 void dcmotoroff() {
   analogWrite(DCMOTORENABLE1, 0);
@@ -653,15 +704,3 @@ unsigned long distance(int sensor) {
 
 // ********** STATE UTILITY FUNCTIONS **********
 
-/*
- * exit state procedure
- * called when state is changed
- * tidies up variables for next state
- */
-void exitstate() {
-  // saves the approximate time the state is transitioned
-  prevtime = micros();
-  // resets the readings on the encoders
-  dcmotorenc1.write(0);
-  dcmotorenc2.write(0);
-}
