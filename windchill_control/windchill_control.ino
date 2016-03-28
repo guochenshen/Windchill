@@ -13,6 +13,7 @@
 #include <Adafruit_Sensor.h> // Adafruit Unified Sensor Library
 #include <Adafruit_BNO055.h> // Adafruit BNO055 IMU Library
 #include <stdlib.h> // C++ stdlib
+#include <math.h> // math functions
 
 #define CODE_VERSION "v0.0.2"
 
@@ -280,7 +281,7 @@ void on() {
   }
 
   // checks if the 5V rail is enabled
-  if (digitalRead(POWER3V)) {
+  if (digitalRead(POWER5V)) {
     LOG("5V Power Enabled");
   }
   else {
@@ -288,18 +289,23 @@ void on() {
   }
 
   // checks if the 12V rail is enabled
-  if (digitalRead(POWER3V)) {
+  if (digitalRead(POWER12V)) {
     LOG("12V Power Enabled");
   }
   else {
     LOG("12V Power Disaled");
   }
 
+  LOG("Calibrating...");
   calibrate(); // read the position data to determine position on window
+  LOG("Calibrated");
+  LOG("Resetting Position...");
   reset_position(); // moves the device to starting position
+  LOG("Position Reset");
 
   // exit condition is true, can be changed to disable turning on if checks fail
   if (true) {
+    LOG("Completed on procedure, exiting state");
     state = &standby;
     exit_state();
   }
@@ -327,8 +333,6 @@ void standby() {
     exit_state();
   }
 }
-
-
 
 
 /*
@@ -418,29 +422,73 @@ boolean get_position() {
   }
 }
 
+
 // resets position to the top left corner
 // position is the closest it can be while still rotating freely and not contact the wall
 // border is added for protection
 void reset_position() {
   double border = 2.5; // border in [cm]
-  double top_x = max(DEVICE_X, DEVICE_Y) * 1.414;
-  double left_y = max(DEVICE_Y, DEVICE_Y) * 1.414;
+  double sqrt2 = 1.5; // square root of 2, overestimated to avoid contact with walls
+  double top_x = max(DEVICE_X, DEVICE_Y) * sqrt2 + border;
+  double left_y = max(DEVICE_Y, DEVICE_Y) * sqrt2 + border;
 
-  double delta_x = position_x - top_x;
-  double delta_y = position_y - left_y;
-
-
-
-
+  move_absolute(top_x, left_y); // moves the device to the top left corner
+  rotate_absolute(0); // rotates the devices to 0 degrees
 }
 
 
+/*
+ * moves a relative position from where it currently is
+ * will not move past where it cannot move to
+ */
+void move_relative(double x, double y) {
+  LOG("Move Relative Distance");
+  // turns on PID control software
+  dcmotorreset();
+  dcmotorpidon();
 
+  double angle = atan2(y, x);
+  double distance = sqrt(sq(x) + sq(y));
 
+  rotate_absolute(angle);
+  
+  dcmotordirection(DCMOTORLEFT, FORWARD);
+  dcmotordirection(DCMOTORRIGHT, FORWARD);
 
+  while (abs(distance * 60) > abs(dcmotorenc1.read())) {
+    analogWrite(DCMOTORENABLE1, 255);
+    analogWrite(DCMOTORENABLE2, 255);
+  }
+  exit_state();
+}
 
+/*
+ * move to an absolute position on the surface
+ * will not move if desired position is off the surface
+ * requires that the position value is accurate
+ */
+void move_absolute(double x, double y) {
+  LOG("Move Absolute Distance");
 
+  dcmotorreset();
+  dcmotorpidon();
 
+  double x_delta = x - position_x;
+  double y_delta = y - position_y;
+  double angle = atan2(y_delta, x_delta);
+  double distance = sqrt(sq(x_delta) + sq(y_delta));
+  
+  rotate_absolute(angle);
+  
+  dcmotordirection(DCMOTORLEFT, FORWARD);
+  dcmotordirection(DCMOTORRIGHT, FORWARD);
+
+  while (abs(distance * 60) > abs(dcmotorenc1.read())) {
+    analogWrite(DCMOTORENABLE1, 255);
+    analogWrite(DCMOTORENABLE2, 255);
+  }
+  exit_state();
+}
 
 
 void rotate_relative(double d) {
@@ -532,9 +580,9 @@ void right_uturn() {
 //    savestate = &right;
 //  }
 
-  move_distance(-5.5);
+  move_relative(0, -5.5);
   rotate_relative(90);
-  move_distance(18.0);
+  move_relative(0, 18.0);
   rotate_relative(90);
 
   if (true) {
@@ -562,9 +610,9 @@ void left_uturn() {
 //    savestate = &right;
 //  }
 
-  move_distance(-5.5);
+  move_relative(0, -5.5);
   rotate_relative(-90);
-  move_distance(18.0);
+  move_relative(18.0, 0);
   rotate_relative(-90);
 
   if (true) {
@@ -579,31 +627,6 @@ void left_uturn() {
   }
 }
 
-void move_distance(double distance) {
-  DEBUG_PRINT("Move Distance");
-  // turns on PID control software
-  dcmotorreset();
-  dcmotorpidon();
-
-  if (distance > 0) {
-    dcmotordirection(DCMOTORLEFT, FORWARD);
-    dcmotordirection(DCMOTORRIGHT, FORWARD);
-  }
-  else if (distance < 0) {
-    DEBUG_PRINT("x");
-    dcmotordirection(DCMOTORLEFT, BACKWARD);
-    dcmotordirection(DCMOTORRIGHT, BACKWARD);
-  }
-  else {
-    return;
-  }
-
-  while (abs(distance * 60) > abs(dcmotorenc1.read())) {
-    analogWrite(DCMOTORENABLE1, 255);
-    analogWrite(DCMOTORENABLE2, 255);
-  }
-  exit_state();
-}
 
 
 // moves forward descending a wall
