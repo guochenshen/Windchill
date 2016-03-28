@@ -5,6 +5,7 @@
    Manual Testing on Hardware to determine faults, if any
    Testing results conducted with Serial Outputs and LEDs
    Hardware: Arduino Mega 2560
+*/
 
 
 #include <PID_v1.h> // PID Library
@@ -289,4 +290,3 @@ void dcmotorreset() {
 void loop() {
   (*state)();
 }
-*/
