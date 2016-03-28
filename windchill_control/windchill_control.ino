@@ -142,9 +142,9 @@
 #define REAR 3
 
 // orientation axis constants
-#define X_AXIS 0
-#define Y_AXIS 1
-#define Z_AXIS 2
+#define XAXIS 0
+#define YAXIS 1
+#define ZAXIS 2
 
 
 // state machine variables
@@ -451,7 +451,7 @@ void move_relative(double x, double y) {
   double distance = sqrt(sq(x) + sq(y));
 
   rotate_absolute(angle);
-  
+
   dcmotordirection(DCMOTORLEFT, FORWARD);
   dcmotordirection(DCMOTORRIGHT, FORWARD);
 
@@ -477,9 +477,9 @@ void move_absolute(double x, double y) {
   double y_delta = y - position_y;
   double angle = atan2(y_delta, x_delta);
   double distance = sqrt(sq(x_delta) + sq(y_delta));
-  
+
   rotate_absolute(angle);
-  
+
   dcmotordirection(DCMOTORLEFT, FORWARD);
   dcmotordirection(DCMOTORRIGHT, FORWARD);
 
@@ -533,7 +533,7 @@ void rotate_absolute(double d) {
   bno.getEvent(&imu_event);
 
   // TODO determine which axis is relevant depending on the
-  double current_angle = orientation(X_AXIS);
+  double current_angle = orientation(XAXIS);
 }
 
 
@@ -753,9 +753,9 @@ float orientation(int axis) {
 
   // return the orientation of the axis desired
   switch (axis) {
-    case X_AXIS: return imu_event.orientation.x;
-    case Y_AXIS: return imu_event.orientation.y;
-    case Z_AXIS: return imu_event.orientation.z;
+    case XAXIS: return imu_event.orientation.x;
+    case YAXIS: return imu_event.orientation.y;
+    case ZAXIS: return imu_event.orientation.z;
     default: return 0;
   }
 }
