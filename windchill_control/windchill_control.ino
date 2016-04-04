@@ -18,7 +18,7 @@
 #define CODE_VERSION "v0.0.2"
 
 // comment out "#define DEBUG" to disable debug printing
-#define DEBUG
+//#define DEBUG
 #ifdef DEBUG
 // switch lines to change output stream
   #define DEBUG_PRINT(x) Serial.println(x)
@@ -31,14 +31,14 @@
 #define LOG
 #ifdef LOG
   // switch lines to change output stream
-  #define LOG(x) Serial.println(x)
-//#define LOG(x) bluetooth.println(x)
+  //#define LOG(x) Serial.println(x)
+  #define LOG(x) bluetooth.println(x)
 #else
   #define LOG(x)
 #endif
 
 // analog input pins
-#define SENSOR0 A0
+#define SPEED A0 // potentiometer determining the speed
 #define SENSOR1 A1
 #define SENSOR2 A2
 #define SENSOR3 A3
@@ -58,13 +58,13 @@
 // digital pins
 #define PIN0 0 // RX0 & USB TO TTL
 #define PIN1 1 // TX0 & USB TO TTL
-#define DCMOTORENCODER1CHA 2 // INT0 & PWM
-#define DCMOTORENCODER1CHB 3 // INT1 & PWM
+#define DCMOTORENCODERLEFTCHA 2 // INT0 & PWM
+#define DCMOTORENCODERLEFTCHB 3 // INT1 & PWM
 #define ULTRA1 4 // PWM - ultrasonic distance 1 trigger
 #define ULTRA2 5 // PWM - ultrasonic distance 1 echo
 #define ULTRA3 6 // PWM - ultrasonic distance 2 trigger
 #define ULTRA4 7 // PWM - utlrasonic distance 2 echo
-#define PIN8 8 // PWM - ultrasonic distance 3 triggger
+#define ULTRAFRONT 8 // PWM - ultrasonic distance 3 triggger
 #define PIN9 9 // PWM - ultrasonic distance 3 echo
 #define PIN10 10 // PWM - ultrasonic distance 4 trigger
 #define PIN11 11 // PWM - ultrasonic distance 4 echo
@@ -74,8 +74,8 @@
 #define PIN15 15 // RX3
 #define PIN16 16 // TX2
 #define PIN17 17 // RX2
-#define DCMOTORENCODER2CHA 18// TX1 & INT5 - dc motor encoder 1 channel a
-#define DCMOTORENCODER2CHB 19 // RX1 & INT4 - dc motor encoder 1 channel b
+#define DCMOTORENCODERRIGHTCHA 18// TX1 & INT5 - dc motor encoder 1 channel a
+#define DCMOTORENCODERRIGHTCHB 19 // RX1 & INT4 - dc motor encoder 1 channel b
 #define IMU1 20 // INT3 - dc motor encoder 2 channel a
 #define IMU2 21 // INT2 - dc motor encoder 2 channel b
 #define LIMITLEFT 22 // limit switch front 1
@@ -96,12 +96,12 @@
 #define BLUETOOTHTX 37 // bluetooth TX, TX-O pin
 #define PIN38 38
 #define PIN39 39
-#define DCMOTORL1 40 // dc motor 1 direction 1
-#define DCMOTORL2 41 // dc motor 1 direction 2
-#define DCMOTORL3 42 // dc motor 2 direction 1
-#define DCMOTORL4 43 // dc motor 2 direction 2
-#define DCMOTORENABLE1 44 // PWM - dc motor 1 enable pin
-#define DCMOTORENABLE2 45 // PWM - dc motor 2 enable pin
+#define MOTOR_LEFT1 40 // dc motor 1 direction 1
+#define MOTOR_LEFT2 41 // dc motor 1 direction 2
+#define MOTOR_RIGHT1 42 // dc motor 2 direction 1
+#define MOTOR_RIGHT2 43 // dc motor 2 direction 2
+#define MOTOR_ENABLE_LEFT 44 // PWM - dc motor 1 enable pin
+#define MOTOR_ENABLE_RIGHT 45 // PWM - dc motor 2 enable pin
 #define PIN46 46 // PWM
 #define PIN47 47
 #define PIN48 48
@@ -116,8 +116,9 @@
 // ******************** CONSTANTS ********************
 
 // device dimension constants
-#define DEVICE_X 32 // max x dimension of the device in [cm]
-#define DEVICE_Y 32 // max y dimension of the device in [cm]
+#define DEVICE_X 31 // max x dimension of the device in [cm]
+#define DEVICE_Y 31 // max y dimension of the device in [cm]
+#define WHEEL_RADIUS 3 // wheel radius in [cm]
 
 // component constants
 #define DCENCODERREVOLUTION 4741.44 // encoder ticks per revolution
@@ -128,8 +129,8 @@
 #define ULTRADELAY 50 // safe delay of ultrasonic readings
 
 // motor constants
-#define DCMOTORLEFT 0
-#define DCMOTORRIGHT 1
+#define MOTOR_LEFT 0
+#define MOTOR_RIGHT 1
 
 // motor direction constants
 #define FORWARD 1
@@ -162,15 +163,15 @@ double position_y; // [m]
 
 
 // encoder data objects
-Encoder dcmotorenc1(DCMOTORENCODER1CHA, DCMOTORENCODER1CHB);
-Encoder dcmotorenc2(DCMOTORENCODER2CHA, DCMOTORENCODER2CHB);
+Encoder dcmotorencleft(DCMOTORENCODERLEFTCHA, DCMOTORENCODERLEFTCHB);
+Encoder dcmotorencright(DCMOTORENCODERRIGHTCHA, DCMOTORENCODERRIGHTCHB);
 int32_t prevenc1; // previous encoder 1 position reading
 int32_t prevenc2; // previous encoder 2 position reading
 double prevvel1; // previous encoder 1 velocity reading
 double prevvel2; // previous encoder 2 velocity reading
 
 // ultrasonic distance data objects
-NewPing frontdistance(ULTRA1, ULTRA1, ULTRAMAXDISTANCE);
+NewPing frontdistance(ULTRA1, ULTRAFRONT, ULTRAMAXDISTANCE);
 NewPing leftdistance(ULTRA2, ULTRA2, ULTRAMAXDISTANCE);
 NewPing rightdistance(ULTRA3, ULTRA3, ULTRAMAXDISTANCE);
 NewPing reardistance(ULTRA4, ULTRA4, ULTRAMAXDISTANCE);
@@ -179,25 +180,25 @@ NewPing reardistance(ULTRA4, ULTRA4, ULTRAMAXDISTANCE);
 unsigned long prevtime; // previous time, used for velocity calculations
 
 // PID values for dc motor 1
-double dcsetpoint1; // setpoint
-double dcinput1; // input value
-double dcoutput1; // output PWM value
+double dcsetpointleft; // setpoint
+double dcinputleft; // input value
+double dcoutputleft; // output PWM value
 // PID constants dc motor 1
-double kp1 = 10.0;
-double ki1 = 0.0;
-double kd1 = 0.0;
+double kpleft = 10.0;
+double kileft = 0.0;
+double kdleft = 0.0;
 // PID values for dc motor 2
-double dcsetpoint2; // setpoint
-double dcinput2; // input value
-double dcoutput2; // output PWM value
+double dcsetpointright; // setpoint
+double dcinputright; // input value
+double dcoutputright; // output PWM value
 // PID constants for dc motor 2
-double kp2 = 10.0;
-double ki2 = 0.0;
-double kd2 = 0.0;
+double kpright = 10.0;
+double kiright = 0.0;
+double kdright = 0.0;
 
 // PID objects
-PID dcmotorpid1(&dcinput1, &dcoutput1, &dcsetpoint1, kp1, ki1, kd1, DIRECT);
-PID dcmotorpid2(&dcinput2, &dcoutput2, &dcsetpoint2, kp2, ki2, kd2, DIRECT);
+PID dcmotorpid1(&dcinputleft, &dcoutputleft, &dcsetpointleft, kpleft, kileft, kdleft, DIRECT);
+PID dcmotorpid2(&dcinputright, &dcoutputright, &dcsetpointright, kpright, kiright, kdright, DIRECT);
 
 // Bluetooth object
 SoftwareSerial bluetooth(BLUETOOTHTX, BLUETOOTHRX);
@@ -206,18 +207,26 @@ SoftwareSerial bluetooth(BLUETOOTHTX, BLUETOOTHRX);
 Adafruit_BNO055 bno = Adafruit_BNO055(55);
 sensors_event_t imu_event;
 
-// initializes the system
+
+
+
+
+
+/*
+ * Initializes the system and all of its pins
+ */
 void setup() {
   // sets initial state to on state
+  // on state will perform initial checks
   state = &on;
   // set save state as null
   savestate = NULL;
 
-  // begin serial
+  // begin serial at 9600 baud
   Serial.begin(9600);
 
   // configures and starts bluetooth
-  bluetooth.begin(115200);  // The Bluetooth Mate defaults to 115200bps
+  bluetooth.begin(115200);  // The Bluetooth Mate defaults to 115200 baudrate
   bluetooth.print("$");  // Print three times individually to enter command mode
   bluetooth.print("$");
   bluetooth.print("$");  // Enter command mode
@@ -227,29 +236,28 @@ void setup() {
   bluetooth.begin(9600);  // Start bluetooth serial at 9600
 
   // dc motor output pins
-  pinMode(DCMOTORENABLE1, OUTPUT);
-  pinMode(DCMOTORENABLE2, OUTPUT);
-  pinMode(DCMOTORL1, OUTPUT);
-  pinMode(DCMOTORL2, OUTPUT);
-  pinMode(DCMOTORL3, OUTPUT);
-  pinMode(DCMOTORL4, OUTPUT);
+  // enable pins for the dc motors, PWM output to control
+  pinMode(MOTOR_ENABLE_LEFT, OUTPUT);
+  pinMode(MOTOR_ENABLE_RIGHT, OUTPUT);
+  // direction pins for the dc motors
+  pinMode(MOTOR_LEFT1, OUTPUT);
+  pinMode(MOTOR_LEFT2, OUTPUT);
+  pinMode(MOTOR_RIGHT1, OUTPUT);
+  pinMode(MOTOR_RIGHT2, OUTPUT);
 
   // limit switch input pins
   // HIGH when not triggered, LOW when triggered
+  // INPUT_PULLUP to ensure HIGH when not triggered
   pinMode(LIMITLEFT, INPUT_PULLUP);
   pinMode(LIMITRIGHT, INPUT_PULLUP);
 
-  /* Initialise the sensor */
-  if(!bno.begin()) {
-    /* There was a problem detecting the BNO055 ... check your connections */
-    DEBUG_PRINT("No BNO055 Detected");
-  }
-  else {
-    bno.getEvent(&imu_event); // read initial values so event is not null
-  }
+  // sets maximum speed of the system
+  pinMode(SPEED, INPUT);
 
-  // set dc motors to turn off and reset PID
-  dcmotorreset();
+  // initialize the IMU
+  bno.begin();
+  bno.getEvent(&imu_event);
+
   // reset values for next state
   exit_state();
 }
@@ -262,46 +270,50 @@ void loop() {
   (*state)();
 }
 
+/*
+ * exit state procedure
+ * called when state is changed
+ * tidies up variables for next state
+ */
+void exit_state() {
+  // set dc motors to turn off and reset PID
+  motor_reset();
+  // saves the approximate time the state is transitioned
+  prevtime = micros();
+  // resets the readings on the encoders
+  dcmotorencleft.write(0);
+  dcmotorencright.write(0);
+
+  same_state = false;
+}
 
 /*
  * on procedure for the device
  * performs all necessary checks for the device to operate correctly
- * prints data desired output stream
+ * prints data to desired output stream
  */
 void on() {
-  LOG("Team I : World Wide Window Washers Windchill");
+  LOG("Team I : World Wide Window Washers");
+  LOG("Windchill");
   LOG(CODE_VERSION);
+  LOG("");
 
-  // checks if the 3.3V rail is enabled
-  if (digitalRead(POWER3V)) {
-    LOG("3.3V Power Enabled");
-  }
-  else {
-    LOG("3.3V Power Disaled");
-  }
-
-  // checks if the 5V rail is enabled
-  if (digitalRead(POWER5V)) {
-    LOG("5V Power Enabled");
-  }
-  else {
-    LOG("5V Power Disaled");
-  }
-
-  // checks if the 12V rail is enabled
-  if (digitalRead(POWER12V)) {
-    LOG("12V Power Enabled");
-  }
-  else {
-    LOG("12V Power Disaled");
-  }
+  LOG("System Check:");
+  // checks if power rails are enabled
+  (digitalRead(POWER3V)) ? LOG("3.3V Power Enabled") : LOG("3.3V Power Disabled");
+  (digitalRead(POWER5V)) ? LOG("5V Power Enabled") : LOG("5V Power Disabled");
+  (digitalRead(POWER12V)) ? LOG("12V Power Enabled") : LOG("12V Power Disabled");
+  LOG("");
 
   LOG("Calibrating...");
   calibrate(); // read the position data to determine position on window
+  LOG("Position:");
+  LOG(position_x);
+  LOG(position_y);
+  LOG("Window Size:");
+  LOG(max_x);
+  LOG(max_y);
   LOG("Calibrated");
-  LOG("Resetting Position...");
-  reset_position(); // moves the device to starting position
-  LOG("Position Reset");
 
   // exit condition is true, can be changed to disable turning on if checks fail
   if (true) {
@@ -310,7 +322,6 @@ void on() {
     exit_state();
   }
 }
-
 
 // all systems powered but not performing any actions
 // can transition to state of performing actions
@@ -324,31 +335,26 @@ void standby() {
   DEBUG_PRINT("Standby State");
 
   // keeps both dc motors off
-  dcmotoroff();
+  motor_off();
 
-  // temporary, check time passage, future will be on button push
-  int sec_delay = 5;
-  if (((micros() - prevtime) / 100000) > sec_delay) {
-    state = &forward_right;
-    exit_state();
+  // wait for 'b' from serial to begin
+  if (bluetooth.available()) {
+    char c = bluetooth.read();
+    if (c == 'r') {
+      LOG("Resetting Position...");
+      reset_position();
+      LOG("Position Reset");
+    }
+    if (c == 'b') {
+      state = &forward_right;
+      exit_state();
+      LOG("Beginning");
+    }
   }
 }
 
 
-/*
- * exit state procedure
- * called when state is changed
- * tidies up variables for next state
- */
-void exit_state() {
-  // saves the approximate time the state is transitioned
-  prevtime = micros();
-  // resets the readings on the encoders
-  dcmotorenc1.write(0);
-  dcmotorenc2.write(0);
 
-  same_state = false;
-}
 
 /*
  * called when transitioning to interrupting state to safely return to original state
@@ -372,10 +378,11 @@ void return_state() {
  */
 void calibrate() {
   while (!get_position()) {
-    rotate_relative(5);
-    delay(100);
+    rotate_relative(1);
+    delay(50);
   }
 }
+
 
 /*
  * reads the position from the 4 ultrasonic sensors
@@ -384,37 +391,55 @@ void calibrate() {
  * returns FALSE upon failed localization
  */
 boolean get_position() {
+  LOG("");
+  LOG("Getting Position");
+  LOG("Front:");
   unsigned long front = frontdistance.ping_cm();
+  LOG(front);
+  LOG("Left:");
   unsigned long left = leftdistance.ping_cm();
+  LOG(left);
+  LOG("Right:");
   unsigned long right = rightdistance.ping_cm();
+  LOG(right);
+  LOG("Rear:");
   unsigned long rear = reardistance.ping_cm();
+  LOG(rear);
 
-  sensors_event_t imu_event;
-  bno.getEvent(&imu_event);
+  double bounds = 3; // acceptance range of the device
 
-  double bounds = 5; // acceptance range of the device
+  double angle = orientation(XAXIS);
 
-  // y and z axes not relevant
-  double angle = imu_event.orientation.x;
+  LOG("Angle:");
+  LOG(angle);
+
 
   if (angle > (360 - bounds) || angle < bounds) {
-    position_x = front + (DEVICE_X / 2);
-    position_y = left + (DEVICE_Y / 2);
+    position_x = left + (DEVICE_X / 2);
+    position_y = front + (DEVICE_Y / 2);
+    max_x = left + right + DEVICE_X;
+    max_y = front + rear + DEVICE_Y;
     return true;
   }
   else if ((90 - bounds) < angle && angle < (90 + bounds)) {
-    position_x = right + + (DEVICE_Y / 2);
-    position_y = front + (DEVICE_X / 2);
+    position_x = rear + (DEVICE_Y / 2);
+    position_y = left + (DEVICE_X / 2);
+    max_x = front + rear + DEVICE_Y;
+    max_y = left + right + DEVICE_X;
     return true;
   }
   else if ((180 - bounds) < angle && angle < (180 + bounds)) {
-    position_x = rear + (DEVICE_X / 2);
-    position_y = right + (DEVICE_Y / 2);
+    position_x = right + (DEVICE_X / 2);
+    position_y = rear + (DEVICE_Y / 2);
+    max_x = left + right + DEVICE_X;
+    max_y = front + rear + DEVICE_Y;
     return true;
   }
   else if ((270 - bounds) < angle && angle < (270 + bounds)) {
-    position_x = left + (DEVICE_Y / 2);
-    position_y = rear + (DEVICE_X / 2);
+    position_x = front + (DEVICE_Y / 2);
+    position_y = right + (DEVICE_X / 2);
+    max_x = front + rear + DEVICE_Y;
+    max_y = left + right + DEVICE_X;
     return true;
   }
   else {
@@ -423,19 +448,49 @@ boolean get_position() {
 }
 
 
+
 // resets position to the top left corner
 // position is the closest it can be while still rotating freely and not contact the wall
 // border is added for protection
 void reset_position() {
   double border = 2.5; // border in [cm]
   double sqrt2 = 1.5; // square root of 2, overestimated to avoid contact with walls
-  double top_x = max(DEVICE_X, DEVICE_Y) * sqrt2 + border;
-  double left_y = max(DEVICE_Y, DEVICE_Y) * sqrt2 + border;
+  double top_x = (max(DEVICE_X, DEVICE_Y) * sqrt2) + border;
+  double left_y = (max(DEVICE_Y, DEVICE_Y) * sqrt2) + border;
 
   move_absolute(top_x, left_y); // moves the device to the top left corner
   rotate_absolute(0); // rotates the devices to 0 degrees
 }
 
+
+
+
+/*
+ * moves the device a certain distance in the direction that its facing
+ * every motion function in the system is based off of this function
+ */
+void move_distance(double d) {
+  double revolution = (d / (PI * WHEEL_RADIUS));
+  int encoder = (int) revolution * DCENCODERREVOLUTION;
+
+  motor_reset();
+  motor_pid_on();
+  dcmotorpid1.SetOutputLimits(0, get_max_speed());
+  dcmotorpid2.SetOutputLimits(0, get_max_speed());
+
+  dcsetpointleft = abs(encoder);
+  dcsetpointright = abs(encoder);
+
+  while (dcsetpointleft < encoder && dcsetpointright < encoder) {
+    dcinputleft = abs(dcmotorencleft.read());
+    dcinputright = abs(dcmotorencright.read());
+    dcmotorpid1.Compute();
+    dcmotorpid2.Compute();
+
+    motor_speed(MOTOR_LEFT, dcoutputleft);
+    motor_speed(MOTOR_RIGHT, dcoutputright);
+  }
+}
 
 /*
  * moves a relative position from where it currently is
@@ -444,23 +499,24 @@ void reset_position() {
 void move_relative(double x, double y) {
   LOG("Move Relative Distance");
   // turns on PID control software
-  dcmotorreset();
-  dcmotorpidon();
+  motor_reset();
+  motor_pid_on();
 
   double angle = atan2(y, x);
   double distance = sqrt(sq(x) + sq(y));
 
   rotate_absolute(angle);
 
-  dcmotordirection(DCMOTORLEFT, FORWARD);
-  dcmotordirection(DCMOTORRIGHT, FORWARD);
+  dcmotordirection(MOTOR_LEFT, FORWARD);
+  dcmotordirection(MOTOR_RIGHT, FORWARD);
 
-  while (abs(distance * 60) > abs(dcmotorenc1.read())) {
-    analogWrite(DCMOTORENABLE1, 255);
-    analogWrite(DCMOTORENABLE2, 255);
+  while (abs(distance * 60) > abs(dcmotorencleft.read())) {
+    motor_speed(MOTOR_LEFT, 255);
+    motor_speed(MOTOR_RIGHT, 255);
   }
   exit_state();
 }
+
 
 /*
  * move to an absolute position on the surface
@@ -470,22 +526,26 @@ void move_relative(double x, double y) {
 void move_absolute(double x, double y) {
   LOG("Move Absolute Distance");
 
-  dcmotorreset();
-  dcmotorpidon();
+  motor_reset();
+  motor_pid_on();
 
   double x_delta = x - position_x;
   double y_delta = y - position_y;
   double angle = atan2(y_delta, x_delta);
+  LOG("Distance:");
   double distance = sqrt(sq(x_delta) + sq(y_delta));
+  LOG(distance);
 
+  LOG("Angle:");
+  LOG(angle);
   rotate_absolute(angle);
 
-  dcmotordirection(DCMOTORLEFT, FORWARD);
-  dcmotordirection(DCMOTORRIGHT, FORWARD);
+  dcmotordirection(MOTOR_LEFT, FORWARD);
+  dcmotordirection(MOTOR_RIGHT, FORWARD);
 
-  while (abs(distance * 60) > abs(dcmotorenc1.read())) {
-    analogWrite(DCMOTORENABLE1, 255);
-    analogWrite(DCMOTORENABLE2, 255);
+  while (abs(distance * 60) > abs(dcmotorencleft.read())) {
+    motor_speed(MOTOR_LEFT, 255);
+    motor_speed(MOTOR_RIGHT, 255);
   }
   exit_state();
 }
@@ -493,23 +553,23 @@ void move_absolute(double x, double y) {
 
 void rotate_relative(double d) {
   DEBUG_PRINT("Rotate");
-    dcmotorpidon();
+    motor_pid_on();
 
   if (d > 0) {
-    dcmotordirection(DCMOTORLEFT, FORWARD);
-    dcmotordirection(DCMOTORRIGHT, BACKWARD);
+    dcmotordirection(MOTOR_LEFT, FORWARD);
+    dcmotordirection(MOTOR_RIGHT, BACKWARD);
   }
   else if (d < 0) {
-    dcmotordirection(DCMOTORLEFT, BACKWARD);
-    dcmotordirection(DCMOTORRIGHT, FORWARD);
+    dcmotordirection(MOTOR_LEFT, BACKWARD);
+    dcmotordirection(MOTOR_RIGHT, FORWARD);
   }
   else {
     return;
   }
 
-  while (abs(d * 9) >  abs(dcmotorenc1.read())) {
-    analogWrite(DCMOTORENABLE1, 255);
-    analogWrite(DCMOTORENABLE2, 255);
+  while (abs(d * 9) >  abs(dcmotorencleft.read())) {
+    motor_speed(MOTOR_LEFT, 255);
+    motor_speed(MOTOR_RIGHT, 255);
   }
   exit_state();
 }
@@ -528,12 +588,18 @@ void rotate_absolute(double d) {
   // sanitize input
   double sanitize_degrees = fmod(d, 360);
 
-  // read current angle position from the IMU
-  sensors_event_t imu_event;
-  bno.getEvent(&imu_event);
-
   // TODO determine which axis is relevant depending on the
   double current_angle = orientation(XAXIS);
+
+  double turn_angle = sanitize_degrees - current_angle;
+
+  while (abs(turn_angle * 9) > abs(dcmotorencleft.read())) {
+    dcmotordirection(MOTOR_LEFT, FORWARD);
+    dcmotordirection(MOTOR_RIGHT, BACKWARD);
+
+    motor_speed(MOTOR_LEFT, 255);
+    motor_speed(MOTOR_RIGHT, 255);
+  }
 }
 
 
@@ -542,35 +608,122 @@ void rotate_absolute(double d) {
 
 
 
-// moves forward traveling right
+
+
+/*
+ * forward motion state for one direction
+ * moves forward until the the limit switch is reached
+ */
 void forward_right() {
+  // prints state once if state remains the same
+  if (!same_state) {
+    same_state = true;
+    LOG("Enter Forward Right State");
+  }
+  // prints at every iteration
   DEBUG_PRINT("Forward Right State");
-  // turns on PID control
-  dcmotorpidon();
 
-  dcmotordirection(DCMOTORLEFT, FORWARD);
-  dcmotordirection(DCMOTORRIGHT, FORWARD);
-  analogWrite(DCMOTORENABLE1, 255);
-  analogWrite(DCMOTORENABLE2, 255);
-  DEBUG_PRINT(readlimit(LIMITLEFT));
+  // travel forwards
+  dcmotordirection(MOTOR_LEFT, FORWARD);
+  dcmotordirection(MOTOR_RIGHT, FORWARD);
+  motor_speed(MOTOR_LEFT, 255);
+  motor_speed(MOTOR_RIGHT, 255);
 
-  if (readlimit(LIMITLEFT) == LOW) {
-    dcmotoroff();
-    delay(250);
-    dcmotorreset();
+  if ((readlimit(LIMITLEFT) == LOW) && (readlimit(LIMITRIGHT) == LOW)) {
+    motor_off();
+    motor_reset();
     state = &right_uturn;
     exit_state();
+
+    delay(100);
+  }
+  else if ((readlimit(LIMITLEFT) == LOW) && (readlimit(LIMITRIGHT) == HIGH)) {
+    correct_limit(LIMITRIGHT);
+  }
+  else if ((readlimit(LIMITLEFT) == HIGH) && (readlimit(LIMITRIGHT) == LOW)) {
+    correct_limit(LIMITLEFT);
   }
   else {
     return;
   }
 }
 
+/*
+ * correct the position of the device against the wall
+ */
+void correct_limit(int limit) {
+  if (limit == LIMITRIGHT) {
+    while (readlimit(LIMITRIGHT) == HIGH) {
+      analogWrite(MOTOR_ENABLE_LEFT, 0);
+      motor_speed(MOTOR_RIGHT, 255);
+    }
+  }
+  else if (limit == LIMITLEFT) {
+    while (readlimit(LIMITLEFT) == HIGH) {
+      motor_speed(MOTOR_LEFT, 255);
+      analogWrite(MOTOR_ENABLE_RIGHT, 0);
+    }
+  }
+}
+
+
+/*
+ * forward motion state for opposite direction to forward_right()
+ */
+void forward_left() {
+  // prints state once if state remains the same
+  if (!same_state) {
+    same_state = true;
+    LOG("Enter Forward Left State");
+  }
+  // prints at every iteration
+  DEBUG_PRINT("Forward Left State");
+
+  // travel forwards
+  dcmotordirection(MOTOR_LEFT, FORWARD);
+  dcmotordirection(MOTOR_RIGHT, FORWARD);
+  motor_speed(MOTOR_LEFT, 255);
+  motor_speed(MOTOR_RIGHT, 255);
+
+  if ((readlimit(LIMITLEFT) == LOW) && (readlimit(LIMITRIGHT) == LOW)) {
+    motor_off();
+    motor_reset();
+    state = &left_uturn;
+    exit_state();
+
+    delay(100);
+  }
+  else if ((readlimit(LIMITLEFT) == LOW) && (readlimit(LIMITRIGHT) == HIGH)) {
+    correct_limit(LIMITRIGHT);
+  }
+  else if ((readlimit(LIMITLEFT) == HIGH) && (readlimit(LIMITRIGHT) == LOW)) {
+    correct_limit(LIMITLEFT);
+  }
+  else {
+    return;
+  }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 // turn right 90 degrees
 void right_uturn() {
   DEBUG_PRINT("Right U-Turn");
   // turns on PID control software
-  dcmotorpidon();
+  motor_pid_on();
 //
 //  if (savestate != state) {
 //    savestate = &right;
@@ -586,9 +739,9 @@ void right_uturn() {
   rotate_relative(90);
 
   if (true) {
-    dcmotoroff();
+    motor_off();
     delay(250);
-    dcmotorreset();
+    motor_reset();
     state = &forward_left;
     exit_state();
   }
@@ -600,7 +753,7 @@ void right_uturn() {
 void left_uturn() {
   DEBUG_PRINT("Right U-Turn");
   // turns on PID control software
-  dcmotorpidon();
+  motor_pid_on();
 //
 //  if (savestate != state) {
 //    savestate = &right;
@@ -616,9 +769,9 @@ void left_uturn() {
   rotate_relative(-90);
 
   if (true) {
-    dcmotoroff();
+    motor_off();
     delay(250);
-    dcmotorreset();
+    motor_reset();
     state = &forward_right;
     exit_state();
   }
@@ -629,28 +782,28 @@ void left_uturn() {
 
 
 
-// moves forward descending a wall
-void forward_left() {
-  DEBUG_PRINT("Forward Left");
-  // turns on PID control
-  dcmotorpidon();
-
-  dcmotordirection(DCMOTORLEFT, FORWARD);
-  dcmotordirection(DCMOTORRIGHT, FORWARD);
-  analogWrite(DCMOTORENABLE1, 255);
-  analogWrite(DCMOTORENABLE2, 255);
-
-  if (readlimit(LIMITLEFT) == LOW) {
-    dcmotoroff();
-    delay(250);
-    dcmotorreset();
-    state = &left_uturn;
-    exit_state();
-  }
-  else {
-    return;
-  }
-}
+//// moves forward descending a wall
+//void forward_left() {
+//  DEBUG_PRINT("Forward Left");
+//  // turns on PID control
+//  motor_pid_on();
+//
+//  dcmotordirection(MOTOR_LEFT, FORWARD);
+//  dcmotordirection(MOTOR_RIGHT, FORWARD);
+//  motor_speed(MOTOR_LEFT, 255);
+//  motor_speed(MOTOR_RIGHT, 255);
+//
+//  if (readlimit(LIMITLEFT) == LOW) {
+//    motor_off();
+//    delay(250);
+//    motor_reset();
+//    state = &left_uturn;
+//    exit_state();
+//  }
+//  else {
+//    return;
+//  }
+//}
 
 void right() {
   DEBUG_PRINT("Right State");
@@ -663,17 +816,17 @@ void right() {
   }
 
   // turns on PID control software
-  dcmotorpidon();
+  motor_pid_on();
 
-  dcmotordirection(DCMOTORLEFT, FORWARD);
-  dcmotordirection(DCMOTORRIGHT, BACKWARD);
-  analogWrite(DCMOTORENABLE1, 255);
-  analogWrite(DCMOTORENABLE2, 255);
+  dcmotordirection(MOTOR_LEFT, FORWARD);
+  dcmotordirection(MOTOR_RIGHT, BACKWARD);
+  motor_speed(MOTOR_LEFT, 255);
+  motor_speed(MOTOR_RIGHT, 255);
 
-  if (abs(dcmotorenc1.read()) > 720) {
-    dcmotoroff();
+  if (abs(dcmotorencleft.read()) > 720) {
+    motor_off();
     delay(500);
-    dcmotorreset();
+    motor_reset();
     state = &forward_right;
     exit_state();
     savestate = NULL;
@@ -693,17 +846,17 @@ void left() {
     savestate = &left;
   }
   // turns on PID control software
-  dcmotorpidon();
+  motor_pid_on();
 
   dcmotordirection(0, BACKWARD);
   dcmotordirection(1, FORWARD);
-  analogWrite(DCMOTORENABLE1, 255);
-  analogWrite(DCMOTORENABLE2, 255);
+  motor_speed(MOTOR_LEFT, 255);
+  motor_speed(MOTOR_RIGHT, 255);
 
-  if (abs(dcmotorenc1.read()) > 90) {
-    dcmotoroff();
+  if (abs(dcmotorencleft.read()) > 90) {
+    motor_off();
     delay(500);
-    dcmotorreset();
+    motor_reset();
     state = &forward_left;
     exit_state();
     savestate = NULL;
@@ -719,19 +872,19 @@ void left() {
 void reverse_turn() {
   DEBUG_PRINT("Reverse Turn State");
   // turns on PID control software
-  dcmotorpidon();
+  motor_pid_on();
 
   dcmotordirection(0, BACKWARD);
   dcmotordirection(1, BACKWARD);
-  analogWrite(DCMOTORENABLE1,255);
-  analogWrite(DCMOTORENABLE2, 255);
+  motor_speed(MOTOR_LEFT, 255);
+  motor_speed(MOTOR_RIGHT, 255);
 
   // perform short backup and return to previous state
-  if (abs(dcmotorenc1.read()) > 360) {
-    dcmotoroff();
+  if (abs(dcmotorencleft.read()) > 360) {
+    motor_off();
     delay(500);
     state = savestate;
-    dcmotorreset();
+    motor_reset();
     exit_state();
   }
   else {
@@ -749,66 +902,101 @@ float orientation(int axis) {
   DEBUG_PRINT("Orientation");
 
   // retrieves the data from the IMU
-  bno.getEvent(&imu_event);
+  imu::Vector<3> euler = bno.getVector(Adafruit_BNO055::VECTOR_EULER);
 
   // return the orientation of the axis desired
   switch (axis) {
-    case XAXIS: return imu_event.orientation.x;
-    case YAXIS: return imu_event.orientation.y;
-    case ZAXIS: return imu_event.orientation.z;
+    case XAXIS: return euler.x();
+    case YAXIS: return euler.y();
+    case ZAXIS: return euler.z();
     default: return 0;
   }
 }
 
-// ******************** MOTOR UTILITY FUNCTIONS ********************
+// ****************************** MOTOR UTILITY FUNCTIONS ******************************
 
 /*
- * turns the dc motor enable pins off
- * write analog to pins with PWM to control speed
+ * Turns off the DC motors
+ * writes 0 to enable pins to stop motion
  */
-void dcmotoroff() {
-  analogWrite(DCMOTORENABLE1, 0);
-  analogWrite(DCMOTORENABLE2, 0);
+void motor_off() {
+  analogWrite(MOTOR_ENABLE_LEFT, 0);
+  analogWrite(MOTOR_ENABLE_RIGHT, 0);
 }
-
 
 /*
  * turn on dc motor pid
  */
-void dcmotorpidon() {
+void motor_pid_on() {
   dcmotorpid1.SetMode(AUTOMATIC);
   dcmotorpid2.SetMode(AUTOMATIC);
 }
 
-
 /*
  * turn off dc motor pid
+ * turned off to reset the pid
  */
-void dcmotorpidoff() {
+void motor_pid_off() {
   dcmotorpid1.SetMode(MANUAL);
   dcmotorpid2.SetMode(MANUAL);
 }
 
-
 /*
  * reset dc motors and PID
  */
-void dcmotorreset() {
+void motor_reset() {
   // turns off PID control and resets it
-  dcmotorpid1.SetMode(MANUAL);
-  dcmotorpid2.SetMode(MANUAL);
+  motor_pid_off();
+
   // disable motors
-  dcmotoroff();
+  motor_off();
+
   // reset directions
   // both pins low is brake state for the motors
-  digitalWrite(DCMOTORL1, LOW);
-  digitalWrite(DCMOTORL2, LOW);
-  digitalWrite(DCMOTORL3, LOW);
-  digitalWrite(DCMOTORL4, LOW);
+  digitalWrite(MOTOR_LEFT1, LOW);
+  digitalWrite(MOTOR_LEFT2, LOW);
+  digitalWrite(MOTOR_RIGHT1, LOW);
+  digitalWrite(MOTOR_RIGHT2, LOW);
 
   // reset the encoder values to 0
-  dcmotorenc1.write(0);
-  dcmotorenc2.write(0);
+  dcmotorencleft.write(0);
+  dcmotorencright.write(0);
+}
+
+/*
+ * sets the speed of the motors, capping the maximum PWM output to that
+ * of the speed knob
+ */
+void motor_speed(int motor, int s) {
+  int max_speed = analogRead(SPEED); // read 0-1023 from the potentiometer
+  int output_pwm; // pwm output to the motors
+
+  if (s <= 0) { // prevent speeds less than 0
+    output_pwm = 0;
+  }
+  else if (s >= max_speed) { // cap speeds greater than maximum speed
+    output_pwm = max_speed;
+  }
+  else { // set speed if within range
+    output_pwm = s;
+  }
+
+  // send output pwm to left motor
+  if (motor == MOTOR_LEFT) {
+    analogWrite(MOTOR_ENABLE_LEFT, output_pwm);
+  }
+  // send output pwm to right motor
+  else if (motor == MOTOR_RIGHT) {
+    analogWrite(MOTOR_ENABLE_RIGHT, output_pwm);
+  }
+}
+
+/*
+ * returns maximum speed as allowed by speed knob
+ * returns a value between 0 and 255 for PWM
+ */
+int get_max_speed() {
+  return map(analogRead(SPEED), 0, 1023, 0, 255);
 }
 
 
@@ -820,8 +1008,8 @@ void dcmotorreset() {
  * input parameters are the motor selection and the direction selection
  *
  * motor selection (motor parameter) is integer enumeration of motor
- * 0 or DCMOTORLEFT macro for left motor
- * 1 or DCMOTORRIGHT macro for right motor
+ * 0 or MOTOR_LEFT macro for left motor
+ * 1 or MOTOR_RIGHT macro for right motor
  *
  * direction selection (d parameter) is integer enumeration of direction
  * 1 or FORWARD macro for forward
@@ -834,25 +1022,25 @@ void dcmotordirection(int motor, int d) {
   }
 
   // change settings for left motor
-  if  (motor == DCMOTORLEFT) {
+  if  (motor == MOTOR_LEFT) {
     if (d == FORWARD) {
-      digitalWrite(DCMOTORL1, LOW);
-      digitalWrite(DCMOTORL2, HIGH);
+      digitalWrite(MOTOR_LEFT1, HIGH);
+      digitalWrite(MOTOR_LEFT2, LOW);
     }
     else if (d == BACKWARD) {
-      digitalWrite(DCMOTORL1, HIGH);
-      digitalWrite(DCMOTORL2, LOW);
+      digitalWrite(MOTOR_LEFT1, LOW);
+      digitalWrite(MOTOR_LEFT2, HIGH);
     }
   }
   // change settings for right motor
-  else if (motor == DCMOTORRIGHT) {
+  else if (motor == MOTOR_RIGHT) {
     if (d == FORWARD) {
-      digitalWrite(DCMOTORL3, HIGH);
-      digitalWrite(DCMOTORL4, LOW);
+      digitalWrite(MOTOR_RIGHT1, LOW);
+      digitalWrite(MOTOR_RIGHT2, HIGH);
     }
     else if (d == BACKWARD) {
-      digitalWrite(DCMOTORL3, LOW);
-      digitalWrite(DCMOTORL4, HIGH);
+      digitalWrite(MOTOR_RIGHT1, HIGH);
+      digitalWrite(MOTOR_RIGHT2, LOW);
     }
   }
   // no valid motor selected
