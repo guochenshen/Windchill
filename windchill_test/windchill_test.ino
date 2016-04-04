@@ -2,8 +2,8 @@
    windchill_test.ino
 
    Windchill Testing Harness
-   Manual Testing on Hardware to determine faults, if any
-   Testing results conducted with Serial Outputs and LEDs
+   Manual Testing on Hardware to determine  easily detectable hardware faults, if any
+   Testing results conducted with Serial Outputs
    Hardware: Arduino Mega 2560
 */
 
@@ -22,13 +22,13 @@
 #define CODE_VERSION "v0.0.2"
 
 // comment out #define DEBUG to disable debug printing
-#define DEBUG
-#ifdef DEBUG
+#define TESTPRINT
+#ifdef TESTPRINT
 // switch lines to change serial printing to bluetooth printing
-  #define DEBUG_PRINT(x) Serial.println(x)
-//#define DEBUG_PRINT(x) bluetooth.println(x)
+  #define PRINT(x) Serial.println(x)
+//#define PRINT(x) bluetooth.println(x)
 #else
-  #define DEBUG_PRINT(x)
+  #define PRINT(x)
 #endif
 
 // analog input pins
@@ -197,15 +197,10 @@ SoftwareSerial bluetooth(BLUETOOTHTX, BLUETOOTHRX);
 Adafruit_BNO055 bno = Adafruit_BNO055(55);
 sensors_event_t event;
 
-bno.getEvent(&event);
-
-
 // initializes the system
 void setup() {
-  // sets initial state to on state
-  state = &on;
-  // set save state as null
-  savestate = NULL;
+  // sets initial state to test state
+  state = &test;
 
   // begin serial
   Serial.begin(9600);
@@ -232,56 +227,7 @@ void setup() {
   // HIGH when not triggered, LOW when triggered
   pinMode(LIMITLEFT, INPUT_PULLUP);
   pinMode(LIMITRIGHT, INPUT_PULLUP);
-
-  /* Initialise the sensor */
-  if(!bno.begin()) {
-    /* There was a problem detecting the BNO055 ... check your connections */
-    DEBUG_PRINT("No BNO055 Detected");
-  }
-
-  // set dc motors to turn off and reset PID
-  dcmotorreset();
-  // reset values for next state
-  exit_state();
 }
-
-
-/*
- * exit state procedure
- * called when state is changed
- * tidies up variables for next state
- */
-void exit_state() {
-  // saves the approximate time the state is transitioned
-  prevtime = micros();
-  // resets the readings on the encoders
-  dcmotorenc1.write(0);
-  dcmotorenc2.write(0);
-
-  same_state = false;
-}
-
-/*
- * reset dc motors and PID
- */
-void dcmotorreset() {
-  // turns off PID control and resets it
-  dcmotorpid1.SetMode(MANUAL);
-  dcmotorpid2.SetMode(MANUAL);
-  // disable motors
-  dcmotoroff();
-  // reset directions
-  // both pins low is brake state for the motors
-  digitalWrite(DCMOTORL1, LOW);
-  digitalWrite(DCMOTORL2, LOW);
-  digitalWrite(DCMOTORL3, LOW);
-  digitalWrite(DCMOTORL4, LOW);
-
-  // reset the encoder values to 0
-  dcmotorenc1.write(0);
-  dcmotorenc2.write(0);
-}
-
 
 
 /*
@@ -289,4 +235,106 @@ void dcmotorreset() {
  */
 void loop() {
   (*state)();
+}
+
+void test() {
+  test_print();
+  test_limit();
+  test_ultra();
+  test_imu();
+}
+
+void test_print() {
+  PRINT("Team I : World Wide Window Washers");
+  PRINT("Windchill Testing");
+  PRINT(CODE_VERSION);
+  PRINT("");
+}
+
+void test_limit() {
+  PRINT("Beginning limit switch testing.");
+
+  if (digitalRead(LIMITLEFT) == LOW) {
+    PRINT("SUCCESS: Left limit switch correctly pulled HIGH.");
+  }
+  else {
+    PRINT("ERROR: Left limit switch incorrectly pulled LOW.");
+  }
+  if (digitalRead(LIMITRIGHT) == LOW) {
+    PRINT("SUCCESS: Right limit switch correctly pulled HIGH.");
+  }
+  else {
+    PRINT("ERROR: Left limit switch incorrectly pulled LOW.");
+  }
+
+  PRINT("Trigger left limit switch to test.");
+  delay(1000);
+  if (digitalRead(LIMITLEFT) == HIGH) {
+    PRINT("SUCCESS: Left limit switch correctly pulled LOW when tripped.");
+  }
+  else {
+    PRINT("ERROR: Left limit switch incorrectly pulled HIGH when tripped.");
+  }
+
+  PRINT("Trigger right limit switch to test.");
+  delay(1000);
+  if (digitalRead(LIMITRIGHT) == HIGH) {
+    PRINT("SUCCESS: Right limit switch correctly pulled LOW when tripped.");
+  }
+  else {
+    PRINT("ERROR: Right limit switch incorrectly pulled HIGH when tripped.");
+  }
+
+  PRINT("Limit switch testing complete.");
+}
+
+void test_ultra() {
+  PRINT("Beginning ultrasonic sensor testing.");
+
+  if (frontdistance.ping() != 0) {
+    PRINT("SUCCESS: Front ultrasonic reading:");
+    PRINT(frontdistance.ping());
+  }
+  else {
+    PRINT("ERROR: Front ultrasonic not reading.");
+  }
+
+  if (leftdistance.ping() != 0) {
+    PRINT("SUCCESS: Left ultrasonic reading:");
+    PRINT(leftdistance.ping());
+  }
+  else {
+    PRINT("ERROR: Left ultrasonic not reading.");
+  }
+
+  if (rightdistance.ping() != 0) {
+    PRINT("SUCCESS: Right ultrasonic reading:");
+    PRINT(rightdistance.ping());
+  }
+  else {
+    PRINT("ERROR: Right ultrasonic not reading.");
+  }
+
+  if (reardistance.ping() != 0) {
+    PRINT("SUCCESS: Rear ultrasonic reading:");
+    PRINT(reardistance.ping());
+  }
+  else {
+    PRINT("ERROR: Rear ultrasonic not reading.");
+  }
+
+  PRINT("Ultrasonic sensor testing complete.");
+}
+
+void test_imu() {
+  PRINT("Beginning IMU testing.");
+
+  if (bno.begin()) {
+    PRINT("SUCCESS: IMU connected.");
+  }
+  else {
+    PRINT("ERROR: IMU not connected.");
+  }
+
+  PRINT("IMU testing complete.");
 }
