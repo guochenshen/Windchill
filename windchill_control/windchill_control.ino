@@ -58,28 +58,28 @@
 // digital pins
 #define PIN0 0 // RX0 & USB TO TTL
 #define PIN1 1 // TX0 & USB TO TTL
-#define DCMOTORENCODERLEFTCHA 2 // INT0 & PWM
-#define DCMOTORENCODERLEFTCHB 3 // INT1 & PWM
-#define ULTRA1 4 // PWM - ultrasonic distance 1 trigger
-#define ULTRA2 5 // PWM - ultrasonic distance 1 echo
-#define ULTRA3 6 // PWM - ultrasonic distance 2 trigger
-#define ULTRA4 7 // PWM - utlrasonic distance 2 echo
-#define ULTRAFRONT 8 // PWM - ultrasonic distance 3 triggger
-#define PIN9 9 // PWM - ultrasonic distance 3 echo
-#define PIN10 10 // PWM - ultrasonic distance 4 trigger
-#define PIN11 11 // PWM - ultrasonic distance 4 echo
+#define MOTOR_LEFT_ENCODER_CHA 2 // INT0 & PWM
+#define MOTOR_LEFT_ENCODER_CHB 3 // INT1 & PWM
+#define ULTRA_FRONT 4 // PWM - ultrasonic distance front
+#define ULTRA_LEFT 5 // PWM - ultrasonic distance left
+#define ULTRA_RIGHT 6 // PWM - ultrasonic distance right
+#define ULTRA_REAR 7 // PWM - utlrasonic distance rear
+#define PIN8 8 // PWM
+#define PIN9 9 // PWM
+#define PIN10 10 // PWM
+#define PIN11 11 // PWM
 #define PIN12 12 // PWM
 #define PIN13 13 // LED & PWM
 #define PIN14 14 // TX3
 #define PIN15 15 // RX3
 #define PIN16 16 // TX2
 #define PIN17 17 // RX2
-#define DCMOTORENCODERRIGHTCHA 18// TX1 & INT5 - dc motor encoder 1 channel a
-#define DCMOTORENCODERRIGHTCHB 19 // RX1 & INT4 - dc motor encoder 1 channel b
+#define MOTOR_RIGHT_ENCODER_CHA 18// TX1 & INT5 - dc motor encoder 1 channel a
+#define MOTOR_RIGHT_ENCODER_CHB 19 // RX1 & INT4 - dc motor encoder 1 channel b
 #define IMU1 20 // INT3 - dc motor encoder 2 channel a
 #define IMU2 21 // INT2 - dc motor encoder 2 channel b
-#define LIMITLEFT 22 // limit switch front 1
-#define LIMITRIGHT 23 // limit switch front 2
+#define LIMIT_LEFT 22 // limit switch front 1
+#define LIMIT_RIGHT 23 // limit switch front 2
 #define PIN24 24 // limit switch left 1
 #define PIN25 25 // limit switch left 2
 #define PIN26 26 // limit switch right 1
@@ -97,8 +97,8 @@
 #define PIN38 38
 #define PIN39 39
 #define MOTOR_LEFT1 40 // dc motor 1 direction 1
-#define MOTOR_LEFT2 41 // dc motor 1 direction 2
-#define MOTOR_RIGHT1 42 // dc motor 2 direction 1
+#define MOTOR_RIGHT1 41 // dc motor 2 direction 1
+#define MOTOR_LEFT2 42 // dc motor 1 direction 2
 #define MOTOR_RIGHT2 43 // dc motor 2 direction 2
 #define MOTOR_ENABLE_LEFT 44 // PWM - dc motor 1 enable pin
 #define MOTOR_ENABLE_RIGHT 45 // PWM - dc motor 2 enable pin
@@ -163,18 +163,14 @@ double position_y; // [m]
 
 
 // encoder data objects
-Encoder dcmotorencleft(DCMOTORENCODERLEFTCHA, DCMOTORENCODERLEFTCHB);
-Encoder dcmotorencright(DCMOTORENCODERRIGHTCHA, DCMOTORENCODERRIGHTCHB);
-int32_t prevenc1; // previous encoder 1 position reading
-int32_t prevenc2; // previous encoder 2 position reading
-double prevvel1; // previous encoder 1 velocity reading
-double prevvel2; // previous encoder 2 velocity reading
+Encoder dcmotorencleft(MOTOR_LEFT_ENCODER_CHA, MOTOR_LEFT_ENCODER_CHB);
+Encoder dcmotorencright(MOTOR_RIGHT_ENCODER_CHA, MOTOR_RIGHT_ENCODER_CHB);
 
 // ultrasonic distance data objects
-NewPing frontdistance(ULTRA1, ULTRAFRONT, ULTRAMAXDISTANCE);
-NewPing leftdistance(ULTRA2, ULTRA2, ULTRAMAXDISTANCE);
-NewPing rightdistance(ULTRA3, ULTRA3, ULTRAMAXDISTANCE);
-NewPing reardistance(ULTRA4, ULTRA4, ULTRAMAXDISTANCE);
+NewPing frontdistance(ULTRA_FRONT, ULTRA_FRONT, ULTRAMAXDISTANCE);
+NewPing leftdistance(ULTRA_LEFT, ULTRA_LEFT, ULTRAMAXDISTANCE);
+NewPing rightdistance(ULTRA_RIGHT, ULTRA_RIGHT, ULTRAMAXDISTANCE);
+NewPing reardistance(ULTRA_REAR, ULTRA_REAR, ULTRAMAXDISTANCE);
 
 // time values
 unsigned long prevtime; // previous time, used for velocity calculations
@@ -248,8 +244,8 @@ void setup() {
   // limit switch input pins
   // HIGH when not triggered, LOW when triggered
   // INPUT_PULLUP to ensure HIGH when not triggered
-  pinMode(LIMITLEFT, INPUT_PULLUP);
-  pinMode(LIMITRIGHT, INPUT_PULLUP);
+  pinMode(LIMIT_LEFT, INPUT_PULLUP);
+  pinMode(LIMIT_RIGHT, INPUT_PULLUP);
 
   // sets maximum speed of the system
   pinMode(SPEED, INPUT);
@@ -629,7 +625,7 @@ void forward_right() {
   motor_speed(MOTOR_LEFT, 255);
   motor_speed(MOTOR_RIGHT, 255);
 
-  if ((readlimit(LIMITLEFT) == LOW) && (readlimit(LIMITRIGHT) == LOW)) {
+  if ((readlimit(LIMIT_LEFT) == LOW) && (readlimit(LIMIT_RIGHT) == LOW)) {
     motor_off();
     motor_reset();
     state = &right_uturn;
@@ -637,11 +633,11 @@ void forward_right() {
 
     delay(100);
   }
-  else if ((readlimit(LIMITLEFT) == LOW) && (readlimit(LIMITRIGHT) == HIGH)) {
-    correct_limit(LIMITRIGHT);
+  else if ((readlimit(LIMIT_LEFT) == LOW) && (readlimit(LIMIT_RIGHT) == HIGH)) {
+    correct_limit(LIMIT_RIGHT);
   }
-  else if ((readlimit(LIMITLEFT) == HIGH) && (readlimit(LIMITRIGHT) == LOW)) {
-    correct_limit(LIMITLEFT);
+  else if ((readlimit(LIMIT_LEFT) == HIGH) && (readlimit(LIMIT_RIGHT) == LOW)) {
+    correct_limit(LIMIT_LEFT);
   }
   else {
     return;
@@ -652,14 +648,14 @@ void forward_right() {
  * correct the position of the device against the wall
  */
 void correct_limit(int limit) {
-  if (limit == LIMITRIGHT) {
-    while (readlimit(LIMITRIGHT) == HIGH) {
+  if (limit == LIMIT_RIGHT) {
+    while (readlimit(LIMIT_RIGHT) == HIGH) {
       analogWrite(MOTOR_ENABLE_LEFT, 0);
       motor_speed(MOTOR_RIGHT, 255);
     }
   }
-  else if (limit == LIMITLEFT) {
-    while (readlimit(LIMITLEFT) == HIGH) {
+  else if (limit == LIMIT_LEFT) {
+    while (readlimit(LIMIT_LEFT) == HIGH) {
       motor_speed(MOTOR_LEFT, 255);
       analogWrite(MOTOR_ENABLE_RIGHT, 0);
     }
@@ -685,7 +681,7 @@ void forward_left() {
   motor_speed(MOTOR_LEFT, 255);
   motor_speed(MOTOR_RIGHT, 255);
 
-  if ((readlimit(LIMITLEFT) == LOW) && (readlimit(LIMITRIGHT) == LOW)) {
+  if ((readlimit(LIMIT_LEFT) == LOW) && (readlimit(LIMIT_RIGHT) == LOW)) {
     motor_off();
     motor_reset();
     state = &left_uturn;
@@ -693,11 +689,11 @@ void forward_left() {
 
     delay(100);
   }
-  else if ((readlimit(LIMITLEFT) == LOW) && (readlimit(LIMITRIGHT) == HIGH)) {
-    correct_limit(LIMITRIGHT);
+  else if ((readlimit(LIMIT_LEFT) == LOW) && (readlimit(LIMIT_RIGHT) == HIGH)) {
+    correct_limit(LIMIT_RIGHT);
   }
-  else if ((readlimit(LIMITLEFT) == HIGH) && (readlimit(LIMITRIGHT) == LOW)) {
-    correct_limit(LIMITLEFT);
+  else if ((readlimit(LIMIT_LEFT) == HIGH) && (readlimit(LIMIT_RIGHT) == LOW)) {
+    correct_limit(LIMIT_LEFT);
   }
   else {
     return;
@@ -793,7 +789,7 @@ void left_uturn() {
 //  motor_speed(MOTOR_LEFT, 255);
 //  motor_speed(MOTOR_RIGHT, 255);
 //
-//  if (readlimit(LIMITLEFT) == LOW) {
+//  if (readlimit(LIMIT_LEFT) == LOW) {
 //    motor_off();
 //    delay(250);
 //    motor_reset();
@@ -1058,8 +1054,8 @@ void dcmotordirection(int motor, int d) {
  * tripped limit switch pulls pin to GROUND
  *
  * front of device has two limit switches
- * 22 is left or LIMITLEFT macro
- * 23 is right or LIMITRIGHT macro
+ * 22 is left or LIMIT_LEFT macro
+ * 23 is right or LIMIT_RIGHT macro
  *
  * return 0 (equivalent to LOW) if limit switch is tripped
  * return 1 (equivalent to HIGH) if limit switch is untripped
@@ -1071,9 +1067,9 @@ int readlimit(int limit) {
   int value;
 
   switch (limit) {
-    case LIMITLEFT: value = digitalRead(LIMITLEFT); // reads the pin
+    case LIMIT_LEFT: value = digitalRead(LIMIT_LEFT); // reads the pin
       break;
-    case LIMITRIGHT: value = digitalRead(LIMITRIGHT); // reads the pin
+    case LIMIT_RIGHT: value = digitalRead(LIMIT_RIGHT); // reads the pin
       break;
     default: value = -1; // sets the value as error value
       break;
