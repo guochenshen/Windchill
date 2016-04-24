@@ -254,13 +254,13 @@ void test_print() {
 void test_limit() {
   PRINT("Beginning limit switch testing.");
 
-  if (digitalRead(LIMITLEFT) == LOW) {
+  if (digitalRead(LIMITLEFT) == HIGH) {
     PRINT("SUCCESS: Left limit switch correctly pulled HIGH.");
   }
   else {
     PRINT("ERROR: Left limit switch incorrectly pulled LOW.");
   }
-  if (digitalRead(LIMITRIGHT) == LOW) {
+  if (digitalRead(LIMITRIGHT) == HIGH) {
     PRINT("SUCCESS: Right limit switch correctly pulled HIGH.");
   }
   else {
@@ -268,7 +268,7 @@ void test_limit() {
   }
 
   PRINT("Trigger left limit switch to test.");
-  delay(1000);
+  delay(2500);
   if (digitalRead(LIMITLEFT) == HIGH) {
     PRINT("SUCCESS: Left limit switch correctly pulled LOW when tripped.");
   }
@@ -277,7 +277,7 @@ void test_limit() {
   }
 
   PRINT("Trigger right limit switch to test.");
-  delay(1000);
+  delay(2500);
   if (digitalRead(LIMITRIGHT) == HIGH) {
     PRINT("SUCCESS: Right limit switch correctly pulled LOW when tripped.");
   }
